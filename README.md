@@ -3,20 +3,26 @@
 Environment roots call composed stacks, which call reusable feature modules:
 
 ```text
-env/lab/                       Runnable lab root and offline tests
-stacks/lab/device_grps/          Device groups, parent hierarchy and membership
-stacks/lab/policies/
-  common/                      Future common policies for parent groups
-  branch/                      Future branch policies for child groups
-  hub/                         Future hub policies for child groups
-stacks/lab/spoke_template/      Explicit templates, stacks and WAN/LAN networking
-stacks/lab/hub_template/        Placeholder for future distinct hub networking
-stacks/modules/panos/
-  panorama/                    device_group, template, template_stack, template_variable
-  objects/                     address, address_group, service, service_group, tag
-  network/                     ethernet, zone, virtual_router, static_route_ipv4
-  policy/                      security, nat
-docs/                          Module contract and deployment workflow
+.
+├── env/
+│   └── lab/                     Runnable lab root and offline tests
+├── stacks/
+│   ├── lab/
+│   │   ├── device_grps/         Device groups, parent hierarchy and membership
+│   │   ├── policies/
+│   │   │   ├── common/          Future common policies for parent groups
+│   │   │   ├── branch/          Future branch policies for child groups
+│   │   │   └── hub/             Future hub policies for child groups
+│   │   ├── spoke_template/      Templates, stacks and WAN/LAN networking
+│   │   └── hub_template/        Placeholder for distinct hub networking
+│   └── modules/
+│       └── panos/
+│           ├── panorama/        Device groups, hierarchy, templates, stacks and variables
+│           ├── objects/         Addresses, address groups, services, service groups and tags
+│           ├── network/         Ethernet interfaces, zones, virtual routers and IPv4 routes
+│           ├── policy/          Security and NAT policies
+│           └── operations/      Commit and push actions
+└── docs/                        Module contract and deployment workflow
 ```
 
 The lab requires Terraform >= 1.14 for commit/push actions and pins PaloAltoNetworks/panos 2.0.13 and includes its
