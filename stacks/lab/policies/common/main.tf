@@ -75,3 +75,12 @@ module "security" {
     ]
   } }
 }
+
+# Default rules run after pre-rules, local rules and post-rules.
+module "default_security" {
+  source = "../../../modules/panos/policy/default_security"
+  items = { for key, item in var.items : key => {
+    location = { device_group = { name = item.device_group } }
+    rules    = item.default_security_rules
+  } if length(try(item.default_security_rules, [])) > 0 }
+}

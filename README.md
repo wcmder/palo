@@ -86,7 +86,9 @@ One-time setup from the workspace root:
 ```sh
 python3 -m venv scripts/venv
 scripts/venv/bin/python3 -m pip install -e .
-cp env/lab/terraform.tfvars.example env/lab/terraform.tfvars
+cp env/lab/device_groups.auto.tfvars.example env/lab/device_groups.auto.tfvars
+cp env/lab/templates.auto.tfvars.example env/lab/templates.auto.tfvars
+cp env/lab/policies.auto.tfvars.example env/lab/policies.auto.tfvars
 ```
 
 Set `hostname` in `env/lab/palo.json` to your Panorama hostname or IP. The
@@ -366,10 +368,22 @@ Native `panos_device_group_parent` resources manage explicit parent assignments.
 The provider runs a Panorama move-device-group job during apply for hierarchy
 changes; removing a managed relationship moves that group back under Shared.
 
-See [terraform.tfvars.example](env/lab/terraform.tfvars.example) for a complete
-three-parent example sharing one spoke network, plus a separate hub network.
-Existing lab values are preserved in `terraform.tfvars`; choose real parent
-names before adding a hierarchy to that lab group.
+Environment inputs are split into automatically loaded files:
+
+| File | Root variable |
+| --- | --- |
+| `device_groups.auto.tfvars` | `device_groups` |
+| `templates.auto.tfvars` | `templates` |
+| `policies.auto.tfvars` | `policies` |
+
+Each has a tracked `.example` file in `env/lab`; actual values remain gitignored.
+The examples cover three parent groups sharing a spoke network and a separate
+hub network. Existing lab values are preserved in the corresponding input files.
+Terraform automatically loads these files from the selected environment root,
+so `palo lab plan`, `apply`, and `push-all` need no extra flags. Keep each root
+variable in one file: repeated map definitions replace rather than merge values.
+Do not also define these variables in a leftover `terraform.tfvars`.
+
 
 Composition variables use `type = any`; resource modules retain typed inputs.
 The template module still explicitly defines WAN/LAN interfaces, zones, variables,
@@ -543,3 +557,12 @@ palo lab apply
 palo lab apply -invoke='module.deployment.action.panos_commit.all'
 palo lab apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
 ```
+
+Common policies also accept `default_security_rules` in root tfvars. The lab
+sets `intrazone-default` to `deny` with session-end logging at the parent group.
+Child firewalls inherit it unless a lower-level default-rule override takes
+precedence. This blocks same-zone traffic only when no earlier security rule
+matches; it does not affect traffic switched without traversing the firewall.
+`interzone-default` retains its built-in deny behavior. One module must own the
+complete default-security override list for each scope. Apply, commit Panorama,
+and push the child device group's policies to activate the change.

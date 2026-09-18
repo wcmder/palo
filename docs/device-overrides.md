@@ -59,7 +59,7 @@ palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["s
 ```
 
 `overrides` is a Python command in `palo`, not a Terraform command or resource.
-It reads `device_overrides.json`, not `terraform.tfvars`. `terraform plan` does
+It reads `device_overrides.json`, not Terraform `.auto.tfvars` inputs. `terraform plan` does
 not display these API-managed changes. Run override plan/apply after Terraform
 configuration changes and before commit/push, because both systems touch the
 stack configuration. The helper's comparison is against **candidate** values;

@@ -29,14 +29,32 @@ run "common_policies_without_templates" {
     device_groups = { parent = { serials = [] } }
     templates     = {}
     policies = { common = { parent = {
-      device_group  = "parent"
-      lan_zone      = "inside"
-      wan_zone      = "outside"
-      wan_interface = "ethernet1/3"
+      device_group           = "parent"
+      lan_zone               = "inside"
+      wan_zone               = "outside"
+      wan_interface          = "ethernet1/3"
+      default_security_rules = [{ name = "intrazone-default", action = "deny", log_end = true }]
     } } }
   }
   assert {
     condition     = jsondecode(base64decode(module.common_policies.name_id.nat.parent)).location.device_group.name == "parent"
     error_message = "Common policies must be created from explicit inputs without any template configuration."
+  }
+}
+
+run "default_security_deny" {
+  command = apply
+  module { source = "../../stacks/modules/panos/policy/default_security" }
+  variables {
+    items = {
+      parent = {
+        location = { device_group = { name = "parent" } }
+        rules    = [{ name = "intrazone-default", action = "deny", log_end = true }]
+      }
+    }
+  }
+  assert {
+    condition     = panos_default_security_policy.this["parent"].rules[0].action == "deny" && panos_default_security_policy.this["parent"].rules[0].log_end
+    error_message = "The intrazone fallback must deny and log traffic."
   }
 }
