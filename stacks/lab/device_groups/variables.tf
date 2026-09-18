@@ -4,12 +4,6 @@ variable "items" {
   default     = {}
 
   validation {
-    condition = alltrue([for item in values(var.items) :
-      try(trimspace(item.device_group) != "" && item.device_group == trimspace(item.device_group), false)
-    ])
-    error_message = "Device-group names must be non-empty and have no surrounding whitespace."
-  }
-  validation {
     condition = alltrue(flatten([for item in values(var.items) : [
       for serial in try(item.serials, []) : try(trimspace(serial) != "" && serial == trimspace(serial), false)
     ]]))

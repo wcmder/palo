@@ -107,7 +107,7 @@ of `templates`. A parent commit can affect multiple child groups. Push every
 affected group/template target after changing inherited policy.
 
 `env/lab/moved.tf` preserves existing resources while moving policy ownership
-to `module.device_grp` and network ownership to `module.templates`. Review these
+to `module.device_groups` and network ownership to `module.templates`. Review these
 moves in a fresh plan before applying; do not use an older saved plan.
 
 Run `palo lab overrides plan` and `palo lab overrides apply` after the normal

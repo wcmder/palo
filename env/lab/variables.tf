@@ -4,9 +4,14 @@ variable "device_groups" {
   default     = {}
   validation {
     condition = alltrue([for name, group in var.device_groups :
-      try(group.parent, null) == null ? true : try(group.parent != name && var.device_groups[group.parent].parent == null, false)
+      try(group.parent, null) == null ? true : try(
+        group.parent != name &&
+        contains(keys(var.device_groups), group.parent) &&
+        try(var.device_groups[group.parent].parent, null) == null,
+        false
+      )
     ])
-    error_message = "Each parent must reference a different declared group with parent=null. Use one parent tier plus child groups."
+    error_message = "Each parent must reference a different declared group whose parent is omitted or null. Use one parent tier plus child groups."
   }
 }
 

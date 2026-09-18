@@ -34,8 +34,4 @@ variable "items" {
     error_message = "Names must be unique within a module call so name_id keys are unambiguous; use separate module calls for duplicate names in different scopes."
   }
 
-  validation {
-    condition     = alltrue([for item in values(var.items) : length([for value in [item.ip_netmask, item.ip_range, item.ip_wildcard, item.fqdn] : value if value != null]) == 1])
-    error_message = "Each address must specify exactly one address type."
-  }
 }

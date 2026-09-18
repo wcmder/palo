@@ -117,8 +117,6 @@ run "shared_stack_unassigned_variables" {
   }
 }
 
-
-
 run "reject_same_interface" {
   command = plan
   module { source = "../../stacks/lab/spoke_template" }
@@ -147,7 +145,7 @@ run "reject_same_interface" {
   expect_failures = [var.items]
 }
 
-run "reject_off_subnet_gateway" {
+run "gateway_validation_deferred_to_provider" {
   command = plan
   module { source = "../../stacks/lab/spoke_template" }
   variables {
@@ -172,63 +170,10 @@ run "reject_off_subnet_gateway" {
       }
     }
   }
-  expect_failures = [var.items]
-}
-
-run "reject_unassigned_ip_with_prefix" {
-  command = plan
-  module { source = "../../stacks/lab/spoke_template" }
-  variables {
-    items = {
-      bad = {
-        name        = "bad"
-        serials     = []
-        stack       = "bad-stack"
-        description = "Terraform-managed spoke"
-        var = {
-          wan_interface     = "ethernet1/1"
-          lan_interface     = "ethernet1/2"
-          wan_zone          = "wan"
-          lan_zone          = "lan"
-          wan_prefix_length = 24
-          wan_ip            = "None"
-          lan_ip            = "None"
-          lan_prefix_length = null
-          default_gateway   = "None"
-          virtual_router    = "spoke-vr"
-        }
-      }
-    }
+  assert {
+    condition     = output.variable_values.bad["$default_gateway"] == "10.0.2.1"
+    error_message = "Gateway configuration must pass through without imposing a same-subnet convention."
   }
-  expect_failures = [var.items]
-}
-
-run "reject_assigned_ip_without_prefix" {
-  command = plan
-  module { source = "../../stacks/lab/spoke_template" }
-  variables {
-    items = {
-      bad = {
-        name        = "bad"
-        serials     = []
-        stack       = "bad-stack"
-        description = "Terraform-managed spoke"
-        var = {
-          wan_interface     = "ethernet1/1"
-          lan_interface     = "ethernet1/2"
-          wan_zone          = "wan"
-          lan_zone          = "lan"
-          wan_ip            = "10.0.1.2"
-          wan_prefix_length = null
-          lan_ip            = "None"
-          lan_prefix_length = null
-          default_gateway   = "None"
-          virtual_router    = "spoke-vr"
-        }
-      }
-    }
-  }
-  expect_failures = [var.items]
 }
 
 run "explicit_values_and_extra_fields" {

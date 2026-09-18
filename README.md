@@ -8,7 +8,7 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   └── lab/                     Runnable lab root and offline tests
 ├── stacks/
 │   ├── lab/
-│   │   ├── device_grps/         Device groups, parent hierarchy and membership
+│   │   ├── device_groups/         Device groups, parent hierarchy and membership
 │   │   ├── policies/
 │   │   │   ├── common/          Future common policies for parent groups
 │   │   │   ├── branch/          Future branch policies for child groups
@@ -379,12 +379,23 @@ there is no need to duplicate the input schema across parent modules.
 Use `"None"` for unassigned IPs/gateway and `null` for unused prefixes.
 Assign device IP overrides with `palo lab overrides plan` and
 `palo lab overrides apply`; see [per-device overrides](docs/device-overrides.md).
-Security/NAT rule creation remains future work in `stacks/lab/policies/common`,
-`branch`, and `hub`. These folders currently contain scaffolds only; the root does
-not call them or create policy rules. When implemented, the root will pass target
-names from `module.device_grp.names`. Parent/child relationships remain entirely
-in `device_groups`, independent of these folders. One module instance must own
-each device-group/policy-type/rulebase scope; combine its ordered rules there.
+Common parent policies live in `stacks/lab/policies/common`. Set
+`device_groups.parent.policy_template = "spoke"` to take the LAN/WAN zone names
+and WAN interface from `templates.spoke.var`. The parent pre-rulebases contain:
+
+- Source NAT for any service exiting the WAN zone/interface, using dynamic IP
+  and port translation to the interface address.
+- LAN-to-WAN allows for TCP destination port 22 and ICMP/ping, followed by an
+  explicit deny for other LAN-to-WAN traffic. The deny precedes child rules.
+
+NAT does not match virtual-router names; routing chooses the outgoing interface.
+The rules are inherited by child device groups, including `spoke`. To deploy,
+apply candidate changes, commit with `module.deployment.action.panos_commit.all`,
+then push the child using
+`module.deployment.action.panos_push_to_devices.policies["spoke"]`.
+The `branch` and `hub` policy folders remain scaffolds. One module instance must
+own each device-group/policy-type/rulebase scope; combine its ordered rules there.
+
 
 `hub_template` is also a scaffold. Hub devices with the same WAN/LAN resource
 layout can already use another `templates` entry. Implement a separate hub module
@@ -479,10 +490,18 @@ terraform -chdir=env/lab test
 
 Mock-provider tests exercise two instances of every feature module, decoded
 identifier names, policy order, multi-spoke
-variable/addressing configuration. They also verify explicit values and pass-through fields, reject duplicate interfaces,
-invalid prefixes, and off-subnet gateways. Action tests verify that only assigned spokes are
+variable/addressing configuration. They also verify explicit values and pass-through fields, reject duplicate
+interface ownership, and allow gateway values without custom subnet restrictions. Action tests verify that only assigned spokes are
 eligible for push and that blank serials are rejected. They do not
 verify device-side acceptance or perform live commits/pushes.
 
 See [deployment](docs/deployment.md) for the deployment boundary.
 Provider reference: https://registry.terraform.io/providers/PaloAltoNetworks/panos/2.0.13/docs
+
+Input validation is limited to repository relationships and ownership: group
+hierarchy, unique template/stack ownership, distinct managed interfaces, unique
+resource/rule identities and unambiguous locations. Non-empty serial checks remain
+because serials select push targets. Network value formats and provider-specific
+attribute combinations are left to Terraform/provider validation. Adding a field
+to the flexible composition inputs does not require a matching validation rule;
+fields consumed by resource expressions must still be supplied.

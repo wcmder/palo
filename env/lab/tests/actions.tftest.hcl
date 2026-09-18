@@ -4,7 +4,7 @@ run "independent_policy_and_template_membership" {
   command = apply
   variables {
     device_groups = {
-      parent_a   = { parent = null, serials = [] }
+      parent_a   = { serials = [] }
       parent_b   = { parent = null, serials = [] }
       branches_a = { parent = "parent_a", serials = ["A", "H"] }
       branches_b = { parent = "parent_b", serials = ["B"] }
@@ -66,11 +66,11 @@ run "independent_policy_and_template_membership" {
     error_message = "One policy group must support separate hub and spoke stacks."
   }
   assert {
-    condition     = module.device_grp.parents.branches_a == "parent_a" && module.device_grp.parents.branches_b == "parent_b"
+    condition     = module.device_groups.parents.branches_a == "parent_a" && module.device_groups.parents.branches_b == "parent_b"
     error_message = "Each child must reference its own parent."
   }
   assert {
-    condition     = jsondecode(base64decode(module.device_grp.parent_name_id.branches_a)).device_group == "branches_a"
+    condition     = jsondecode(base64decode(module.device_groups.parent_name_id.branches_a)).device_group == "branches_a"
     error_message = "Hierarchy identity must use the provider's device_group import field."
   }
   assert {
