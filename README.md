@@ -399,7 +399,7 @@ palo lab apply
 palo lab overrides plan
 palo lab overrides apply
 # Commit all configured policy groups, templates and stacks:
-palo lab apply -invoke='action.panos_commit.all'
+palo lab apply -invoke='module.deployment.action.panos_commit.all'
 # Push only the intersection of group "spoke" and template entry "spoke":
 palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
 ```
@@ -411,11 +411,34 @@ palo lab push-all --dry-run
 palo lab push-all
 ```
 
+All environments share the actions and target selection in
+`stacks/modules/panos/operations/commit_push`. Each root needs only this wiring
+in `actions.tf` (plus any desired command comments):
+
+```hcl
+module "deployment" {
+  source        = "../../stacks/modules/panos/operations/commit_push"
+  device_groups = var.device_groups
+  templates     = var.templates
+}
+```
+
+After committing, push only templates or only policies with:
+
+```sh
+palo lab apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
+palo lab apply -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'
+```
+
+Use `plan` instead of `apply` to preview. These keys identify a template input
+and a device group respectively; targets without assigned serials are excluded.
+All action addresses use the `module.deployment` prefix, including commit-all.
+
 `push-all` is a Python CLI command implemented in `src/palo_cli/push_all.py`,
 not a Terraform action or a direct Python call to the Panorama API. It invokes
 Terraform push actions; the PAN-OS provider performs the API calls.
 
-`push-all` evaluates `local.deployment_items` using Terraform console, lists the
+`push-all` evaluates `module.deployment.deployment_items` using Terraform console, lists the
 selected targets and serials, and asks for one confirmation. It pushes targets
 sequentially and stops on the first failure. Use `--auto-approve` to skip the
 batch prompt. It does not apply resource changes, write variable overrides, or
@@ -435,7 +458,7 @@ palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["s
 Scoped commits include the target's parent group, child group, template and stack.
 Action keys are `<device-group>/<template-key>`. Only non-empty serial
 intersections create deployment targets. Unassigned groups/templates can still
-be committed using `action.panos_commit.all`. Shared policy commits can include
+be committed using `module.deployment.action.panos_commit.all`. Shared policy commits can include
 changes affecting other children; push each affected target deliberately.
 Normal apply does not invoke commit/push actions.
 

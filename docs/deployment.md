@@ -61,8 +61,8 @@ entry. It includes template configuration and leaves `force_template_values = fa
 Unassigned groups/templates have no scoped target; commit them using:
 
 ```sh
-palo lab plan -invoke='action.panos_commit.all'
-palo lab apply -invoke='action.panos_commit.all'
+palo lab plan -invoke='module.deployment.action.panos_commit.all'
+palo lab apply -invoke='module.deployment.action.panos_commit.all'
 ```
 
 Firewalls must already be managed by Panorama. The actual lab retains PA-A's
@@ -124,7 +124,7 @@ palo lab push-all --dry-run
 palo lab push-all
 ```
 
-The command discovers current `local.deployment_items` through Terraform console,
+The command discovers current `module.deployment.deployment_items` through Terraform console,
 shows target keys and serials, and requests one batch confirmation. Each push
 runs sequentially through the existing provider action. It stops at the first
 failure, reports completed targets, and never automatically retries or rolls back.

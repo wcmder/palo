@@ -50,11 +50,11 @@ run "independent_policy_and_template_membership" {
     error_message = "Push targets must be policy/template intersections, excluding empty parents."
   }
   assert {
-    condition     = keys(local.policy_push_items) == ["branches_a", "branches_b"] && local.policy_push_items.branches_a.serials == ["A", "H"]
+    condition     = keys(module.deployment.policy_push_items) == ["branches_a", "branches_b"] && module.deployment.policy_push_items.branches_a.serials == ["A", "H"]
     error_message = "Policy-only pushes must retain full group membership and exclude unassigned parents."
   }
   assert {
-    condition     = keys(local.template_push_items) == ["hub", "shared"] && local.template_push_items.shared.serials == ["A", "B"]
+    condition     = keys(module.deployment.template_push_items) == ["hub", "shared"] && module.deployment.template_push_items.shared.serials == ["A", "B"]
     error_message = "Template-only pushes must span the stack's assigned devices across policy groups."
   }
   assert {
@@ -74,7 +74,7 @@ run "independent_policy_and_template_membership" {
     error_message = "Hierarchy identity must use the provider's device_group import field."
   }
   assert {
-    condition     = local.deployment_items["branches_a/shared"].device_groups == tolist(["parent_a", "branches_a"])
+    condition     = module.deployment.deployment_items["branches_a/shared"].device_groups == tolist(["parent_a", "branches_a"])
     error_message = "Scoped commits must include the inherited parent policy."
   }
 }
@@ -86,7 +86,7 @@ run "policy_push_without_templates" {
     templates     = {}
   }
   assert {
-    condition     = keys(local.policy_push_items) == ["branch"] && length(local.template_push_items) == 0 && length(local.deployment_items) == 0
+    condition     = keys(module.deployment.policy_push_items) == ["branch"] && length(module.deployment.template_push_items) == 0 && length(module.deployment.deployment_items) == 0
     error_message = "Policy-only pushes must exist without any template or combined deployment target."
   }
 }
@@ -136,4 +136,20 @@ run "reject_blank_serial" {
     } }
   }
   expect_failures = [var.templates]
+}
+
+run "shared_actions_template_only" {
+  command = plan
+  module { source = "../../stacks/modules/panos/operations/commit_push" }
+  variables {
+    device_groups = {}
+    templates = {
+      network = { name = "network", stack = "network-stack", serials = ["A"] }
+      unused  = { name = "unused", stack = "unused-stack", serials = [] }
+    }
+  }
+  assert {
+    condition     = keys(output.name_id.templates) == ["network"] && length(output.name_id.policies) == 0 && length(output.deployment_items) == 0
+    error_message = "Template-only actions must exist without device groups and exclude empty assignments."
+  }
 }

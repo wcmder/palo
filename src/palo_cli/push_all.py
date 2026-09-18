@@ -20,7 +20,7 @@ def discover(executable, root, child):
     # relying on an output saved by a previous apply.
     result = subprocess.run(
         [executable, f"-chdir={root}", "console", "-no-color"],
-        input="jsonencode(local.deployment_items)\n", text=True,
+        input="jsonencode(module.deployment.deployment_items)\n", text=True,
         capture_output=True, env=child,
     )
     if result.returncode:

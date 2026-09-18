@@ -1,7 +1,57 @@
+locals {
+  # Separate pushes use their own membership, without requiring a group/stack pair.
+  # Exclude empty assignments so an empty device list cannot broaden a push.
+  template_push_items = { for key, item in var.templates : key => item if length(item.serials) > 0 }
+  policy_push_items   = { for name, group in var.device_groups : name => group if length(try(group.serials, [])) > 0 }
+
+  # Each push targets only the intersection of a device group and template stack.
+  deployment_items = merge({}, [for group_name, group in var.device_groups : {
+    for template_key, template in var.templates : "${group_name}/${template_key}" => {
+      device_group   = group_name
+      device_groups  = compact([try(group.parent, null), group_name])
+      template       = template.name
+      template_stack = template.stack
+      serials        = sort(tolist(setintersection(toset(try(group.serials, [])), toset(template.serials))))
+    } if length(setintersection(toset(try(group.serials, [])), toset(template.serials))) > 0
+  }]...)
+}
+
+action "panos_push_to_devices" "templates" {
+  for_each = local.template_push_items
+  config {
+    description           = "Push template stack ${each.value.stack}"
+    type                  = "template_stack"
+    name                  = each.value.stack
+    devices               = each.value.serials
+    force_template_values = false
+  }
+}
+
+action "panos_push_to_devices" "policies" {
+  for_each = local.policy_push_items
+  config {
+    description      = "Push policies for device group ${each.key}"
+    type             = "device_group"
+    name             = each.key
+    devices          = each.value.serials
+    include_template = false
+  }
+}
+
+action "panos_commit" "all" {
+  config {
+    description     = "Commit configured policy and templates"
+    device_groups   = keys(var.device_groups)
+    templates       = [for item in values(var.templates) : item.name]
+    template_stacks = [for item in values(var.templates) : item.stack]
+    force           = false
+  }
+}
+
 # Explicit operations: normal plan/apply does not commit or push.
 # Apply candidate changes first, invoke commit, wait for success, then invoke push.
 action "panos_commit" "this" {
-  for_each = var.items
+  for_each = local.deployment_items
 
   config {
     description     = "Commit target ${each.key}"
@@ -12,16 +62,9 @@ action "panos_commit" "this" {
   }
 }
 
-locals {
-  push_items = {
-    for key, spoke in var.items : key => spoke
-    if length(spoke.serials) > 0
-  }
-}
-
 action "panos_push_to_devices" "this" {
   # No push action exists for a spoke with no firewall assignments.
-  for_each = local.push_items
+  for_each = local.deployment_items
 
   config {
     description           = "Push target ${each.key}"
@@ -35,7 +78,7 @@ action "panos_push_to_devices" "this" {
 
 # Alternative to invoking commit and push separately, after candidate apply.
 action "panos_commit" "commit_and_push" {
-  for_each = local.push_items
+  for_each = local.deployment_items
 
   config {
     description     = "Commit and push target ${each.key}"

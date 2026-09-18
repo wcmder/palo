@@ -24,7 +24,7 @@ class PushAllTest(unittest.TestCase):
         process = Mock(side_effect=[self.discovery({'z/hub': {'serials': ['B']}, 'a/spoke': {'serials': ['A']}}), Mock(returncode=0), Mock(returncode=0)])
         self.assertEqual(self.run_batch(self.options(), process), 0)
         calls = process.call_args_list
-        self.assertEqual(calls[0].kwargs['input'], 'jsonencode(local.deployment_items)\n')
+        self.assertEqual(calls[0].kwargs['input'], 'jsonencode(module.deployment.deployment_items)\n')
         self.assertEqual(calls[1].args[0][-1], '-invoke=module.deployment.action.panos_push_to_devices.this["a/spoke"]')
         self.assertEqual(calls[2].args[0][-1], '-invoke=module.deployment.action.panos_push_to_devices.this["z/hub"]')
         for call in calls:
