@@ -174,6 +174,132 @@ The launcher retrieves the credential without printing it and supplies it to
 the PAN-OS provider through the Terraform process environment. Do not put the
 password in `palo.json` or Terraform variable files.
 
+## Discover firewall serial numbers
+
+Add a `device` map to the environment root's `env/lab/palo.json`. Keys are your
+inventory hostnames and values are firewall management IP addresses:
+
+```json
+"device": {
+  "pa-a": "192.0.2.10",
+  "pa-b": "192.0.2.11"
+}
+```
+
+Keep the existing Panorama hostname and keyring settings. Replace the example
+IPs with real firewall addresses, then run from any directory:
+
+```sh
+palo lab serials
+```
+
+This connects directly to each firewall over HTTPS using the existing keyring
+username/password and `skip_verify_certificate` setting. The account must work
+on each firewall and have XML API operational-command access. It reads
+[`show system info`](https://docs.paloaltonetworks.com/ngfw/api/getting-started/explore-xmlapi)
+and saves `env/lab/serial.json` as a hostname-to-serial map:
+
+```json
+{
+  "pa-a": "007954000920842",
+  "pa-b": "EXAMPLE_SERIAL"
+}
+```
+
+Serial discovery errors identify the device name/IP, failed API operation, and
+sanitized failure reason. Discovery continues with the remaining devices.
+Serials remain strings, preserving leading zeros. The file is replaced only
+when every device succeeds; failures preserve the previous file and return a
+nonzero exit code. The generated file is ignored by Git. Credentials and API
+keys are never written to it. This command does not change configuration,
+commit/push, or automatically update Terraform inputs.
+
+## Onboard firewalls into Panorama
+
+With the `device` map populated in `env/lab/palo.json`, preview and run:
+
+```sh
+palo lab onboard plan
+palo lab onboard apply
+```
+
+The workflow uses the same keyring administrator credentials on Panorama and
+all listed firewalls. It discovers live serials and automatically splits pending
+firewalls into batches of 50. Each batch receives one shared registration key
+restricted to its serials. Keys are generated as batches start and saved once in
+`env/lab/onboarding.json`, adds missing managed-device entries on Panorama,
+commits Panorama, installs each firewall's key and Panorama IP, commits each
+firewall, and finishes after the commits succeed. The final connection wait is
+skipped by default; initial preflight still checks for already-connected devices.
+Already-connected devices are skipped. No Security/NAT or template push is run.
+Device-group and template-stack assignment remains in Terraform.
+
+To also wait for Panorama to report the devices connected:
+
+```sh
+palo lab onboard apply --connection-check
+```
+
+Without this flag, saved progress remains `firewall_committed`, not `connected`.
+`--timeout` always applies to commit jobs and also applies to the final connection
+wait when `--connection-check` is enabled.
+
+`plan` only reads API data and does not create keys, write files, or commit.
+`apply` asks for confirmation and performs **full candidate commits on Panorama
+and the pending firewalls, including any other pending edits**. It stops on the
+first failure after preflight; completed remote changes are not rolled back.
+Use `--auto-approve` only when you intend to skip that confirmation.
+
+`serial.json` keeps the hostname-to-serial map. `onboarding.json` contains
+a top-level `registration_keys` map keyed by key name (key, permitted serials,
+expiry and count),
+per-device progress, and pending commit job
+IDs. It is plaintext, written atomically with owner-only permissions (`0600`),
+and ignored by Git; it is not loaded into Terraform state or saved plans.
+Administrator passwords and XML API session keys are never written to it.
+Each batch key defaults to a 60-minute lifetime and **100 total registration uses**.
+The default 50-device batch leaves capacity for retries:
+
+```sh
+palo lab onboard apply --batch-size 50 --lifetime-minutes 120 --key-count 100 --timeout 600
+```
+
+Keep every firewall in one `device` map; 1,000 pending devices automatically form
+20 batches at the default size. Batches run sequentially: generate/recover the
+batch key, register its serials, commit Panorama, then configure and commit its
+firewalls. A failure stops later batches. Choose a key lifetime long enough for
+a batch's commits and initial connections.
+
+Retries retain valid saved key groups, even when only some devices remain pending.
+Already-connected firewalls are skipped. New serials form new batches; expired
+keys or a changed `--key-count` cause replacement keys to be generated.
+`--batch-size` accepts 1–100 and is capped by `--key-count` (also 1–100).
+The former single `registration_key` record is migrated and reused when valid.
+Legacy per-device secrets are removed locally once a batch key is saved; old
+Panorama keys are not revoked and expire independently.
+After interruptions, recorded commit jobs are checked before further writes.
+If a saved key is exhausted or revoked, or a recorded commit failed, inspect
+Panorama and the saved progress before retrying; the command does not reset
+secure communications or silently migrate firewalls from another Panorama.
+
+Onboarding API errors identify the firewall name/IP and failed operation, with
+HTTP status or PAN-OS error code and sanitized details. Timeouts, refused/reset
+connections, DNS errors, TLS failures and invalid XML have distinct diagnostics.
+After restarting a firewall's management server, a timeout or HTTP 503 can mean
+its API is not ready yet; retry `palo lab onboard plan` after it recovers.
+Preflight failures make no onboarding configuration changes or commits.
+Passwords, API keys, registration keys and raw response bodies are not printed.
+
+The Panorama IP defaults to `hostname` in `palo.json`. If that is a DNS name or
+API endpoint with a port, add `"panorama_ip": "172.16.1.99"` with the address the
+firewalls should use to reach Panorama. Direct HTTPS API access to all devices
+and firewall-to-Panorama management connectivity must be available. The helper
+currently handles one Panorama server, not HA migration.
+
+References: [Palo Alto onboarding workflow](https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/add-a-firewall-as-a-managed-device),
+[registration key commands](https://docs.paloaltonetworks.com/panorama/administration/troubleshooting/recover-managed-device-connectivity-to-panorama),
+and [XML API commits and job status](https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/commit).
+
 ## Self-signed Panorama certificates
 
 Set this optional boolean in the environment's `palo.json`:

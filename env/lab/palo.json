@@ -2,5 +2,10 @@
   "hostname": "172.16.1.99",
   "keyring_service": "panos_api_admin",
   "keyring_username": "admin",
-  "skip_verify_certificate": true
+  "skip_verify_certificate": true,
+  "device": {
+    "pa-a": "172.16.1.119",
+    "pa-b": "172.16.1.124",
+    "pa-c": "172.16.1.129"
+  }
 }

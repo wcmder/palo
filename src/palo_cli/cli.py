@@ -63,11 +63,28 @@ def main():
               "Examples: palo lab plan | palo lab apply | palo lab2 plan\n"
               "Device variables: palo lab overrides plan | palo lab overrides apply [--device paa]\n"
               "Push all targets: palo lab push-all [--dry-run] [--auto-approve]\n"
+              "Discover firewall serials: palo lab serials\n"
+              "Onboard firewalls: palo lab onboard plan | palo lab onboard apply\n"
               "Paths passed to Terraform are relative to the selected environment.\n"
               "init, validate, fmt, test, version and providers do not read keyring.")
         return 0
     try:
         workspace = workspace_root(os.environ)
+        if len(sys.argv) >= 3 and sys.argv[2] == "onboard":
+            from . import onboard
+            options = onboard.parser().parse_args(sys.argv[3:])
+            command, child = prepare([sys.argv[1], "onboard"], workspace, os.environ)
+            root = Path(command[1].removeprefix("-chdir="))
+            return onboard.run(options, root, child)
+        if len(sys.argv) >= 3 and sys.argv[2] == "serials":
+            from . import serials
+            serials.parser().parse_args(sys.argv[3:])
+            # Validate the inventory before accessing keyring.
+            command, _ = prepare([sys.argv[1], "validate"], workspace, os.environ)
+            root = Path(command[1].removeprefix("-chdir="))
+            serials.load_devices(root)
+            _, child = prepare([sys.argv[1], "serials"], workspace, os.environ)
+            return serials.run(root, child)
         if len(sys.argv) >= 3 and sys.argv[2] == "push-all":
             from . import push_all
             options = push_all.parser().parse_args(sys.argv[3:])
