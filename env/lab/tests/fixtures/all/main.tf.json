@@ -1,0 +1,454 @@
+{
+  "terraform": {
+    "required_providers": {
+      "panos": {
+        "source": "PaloAltoNetworks/panos",
+        "version": "= 2.0.13"
+      }
+    }
+  },
+  "module": {
+    "device_group": {
+      "source": "../../../../../stacks/modules/panos/panorama/device_group",
+      "items": {
+        "item0": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-0"
+        },
+        "item1": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-1"
+        }
+      }
+    },
+    "template": {
+      "source": "../../../../../stacks/modules/panos/panorama/template",
+      "items": {
+        "item0": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-0"
+        },
+        "item1": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-1"
+        }
+      }
+    },
+    "template_stack": {
+      "source": "../../../../../stacks/modules/panos/panorama/template_stack",
+      "items": {
+        "item0": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-0",
+          "templates": [
+            "example-template"
+          ]
+        },
+        "item1": {
+          "location": {
+            "panorama": {}
+          },
+          "name": "example-1",
+          "templates": [
+            "example-template"
+          ]
+        }
+      }
+    },
+    "address": {
+      "source": "../../../../../stacks/modules/panos/objects/address",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0",
+          "ip_netmask": "192.0.2.1/32"
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1",
+          "ip_netmask": "192.0.2.2/32"
+        }
+      }
+    },
+    "address_group": {
+      "source": "../../../../../stacks/modules/panos/objects/address_group",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0",
+          "static": [
+            "example-address"
+          ]
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1",
+          "static": [
+            "example-address"
+          ]
+        }
+      }
+    },
+    "service": {
+      "source": "../../../../../stacks/modules/panos/objects/service",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0",
+          "protocol": {
+            "tcp": {
+              "destination_port": "443"
+            }
+          }
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1",
+          "protocol": {
+            "tcp": {
+              "destination_port": "443"
+            }
+          }
+        }
+      }
+    },
+    "service_group": {
+      "source": "../../../../../stacks/modules/panos/objects/service_group",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0",
+          "members": [
+            "example-service"
+          ]
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1",
+          "members": [
+            "example-service"
+          ]
+        }
+      }
+    },
+    "administrative_tag": {
+      "source": "../../../../../stacks/modules/panos/objects/tag",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0"
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1"
+        }
+      }
+    },
+    "ethernet_interface": {
+      "source": "../../../../../stacks/modules/panos/network/ethernet",
+      "items": {
+        "item0": {
+          "location": {
+            "template": {
+              "name": "lab-0"
+            }
+          },
+          "name": "ethernet1/1",
+          "layer3": {}
+        },
+        "item1": {
+          "location": {
+            "template": {
+              "name": "lab-1"
+            }
+          },
+          "name": "ethernet1/2",
+          "layer3": {}
+        }
+      }
+    },
+    "zone": {
+      "source": "../../../../../stacks/modules/panos/network/zone",
+      "items": {
+        "item0": {
+          "location": {
+            "template": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0",
+          "network": {
+            "layer3": [
+              "ethernet1/1"
+            ]
+          }
+        },
+        "item1": {
+          "location": {
+            "template": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1",
+          "network": {
+            "layer3": [
+              "ethernet1/2"
+            ]
+          }
+        }
+      }
+    },
+    "virtual_router": {
+      "source": "../../../../../stacks/modules/panos/network/virtual_router",
+      "items": {
+        "item0": {
+          "location": {
+            "template": {
+              "name": "lab-0"
+            }
+          },
+          "name": "example-0"
+        },
+        "item1": {
+          "location": {
+            "template": {
+              "name": "lab-1"
+            }
+          },
+          "name": "example-1"
+        }
+      }
+    },
+    "security_policy": {
+      "source": "../../../../../stacks/modules/panos/policy/security",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0",
+              "rulebase": "pre-rulebase"
+            }
+          },
+          "rules": [
+            {
+              "name": "first"
+            },
+            {
+              "name": "second"
+            }
+          ]
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1",
+              "rulebase": "pre-rulebase"
+            }
+          },
+          "rules": [
+            {
+              "name": "first"
+            },
+            {
+              "name": "second"
+            }
+          ]
+        }
+      }
+    },
+    "nat_policy": {
+      "source": "../../../../../stacks/modules/panos/policy/nat",
+      "items": {
+        "item0": {
+          "location": {
+            "device_group": {
+              "name": "lab-0",
+              "rulebase": "pre-rulebase"
+            }
+          },
+          "rules": [
+            {
+              "name": "first"
+            },
+            {
+              "name": "second"
+            }
+          ]
+        },
+        "item1": {
+          "location": {
+            "device_group": {
+              "name": "lab-1",
+              "rulebase": "pre-rulebase"
+            }
+          },
+          "rules": [
+            {
+              "name": "first"
+            },
+            {
+              "name": "second"
+            }
+          ]
+        }
+      }
+    },
+    "template_variable": {
+      "source": "../../../../../stacks/modules/panos/panorama/template_variable",
+      "items": {
+        "wan": {
+          "name": "$wan_ip",
+          "location": {
+            "template": {
+              "name": "example-template"
+            }
+          },
+          "type": {
+            "ip_netmask": "192.0.2.2/30"
+          }
+        },
+        "gateway": {
+          "name": "$gateway",
+          "location": {
+            "template_stack": {
+              "name": "example-stack"
+            }
+          },
+          "type": {
+            "ip_netmask": "192.0.2.1"
+          }
+        }
+      }
+    },
+    "static_route_ipv4": {
+      "source": "../../../../../stacks/modules/panos/network/static_route_ipv4",
+      "items": {
+        "default": {
+          "name": "default",
+          "location": {
+            "template": {
+              "name": "example-template"
+            }
+          },
+          "virtual_router": "example-vr",
+          "destination": "0.0.0.0/0",
+          "interface": "ethernet1/1",
+          "nexthop": {
+            "ip_address": "$gateway"
+          }
+        },
+        "internal": {
+          "name": "internal",
+          "location": {
+            "template": {
+              "name": "example-template"
+            }
+          },
+          "virtual_router": "example-vr",
+          "destination": "10.0.0.0/8",
+          "interface": "ethernet1/2",
+          "nexthop": {
+            "ip_address": "198.51.100.1"
+          }
+        }
+      }
+    }
+  },
+  "output": {
+    "device_group": {
+      "value": "${module.device_group.name_id}"
+    },
+    "template": {
+      "value": "${module.template.name_id}"
+    },
+    "template_stack": {
+      "value": "${module.template_stack.name_id}"
+    },
+    "address": {
+      "value": "${module.address.name_id}"
+    },
+    "address_group": {
+      "value": "${module.address_group.name_id}"
+    },
+    "service": {
+      "value": "${module.service.name_id}"
+    },
+    "service_group": {
+      "value": "${module.service_group.name_id}"
+    },
+    "administrative_tag": {
+      "value": "${module.administrative_tag.name_id}"
+    },
+    "ethernet_interface": {
+      "value": "${module.ethernet_interface.name_id}"
+    },
+    "zone": {
+      "value": "${module.zone.name_id}"
+    },
+    "virtual_router": {
+      "value": "${module.virtual_router.name_id}"
+    },
+    "security_policy": {
+      "value": "${module.security_policy.name_id}"
+    },
+    "nat_policy": {
+      "value": "${module.nat_policy.name_id}"
+    },
+    "template_variable": {
+      "value": "${module.template_variable.name_id}"
+    },
+    "static_route_ipv4": {
+      "value": "${module.static_route_ipv4.name_id}"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+crash.*.log
+.env
+.env.*
+.DS_Store
+
+scripts/venv/
+__pycache__/
+*.pyc
+
+*.egg-info/
+build/
+dist/
+
+# Device-specific API override inputs (copy the tracked example).
+**/device_overrides.json

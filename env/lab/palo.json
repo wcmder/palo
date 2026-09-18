@@ -1,0 +1,6 @@
+{
+  "hostname": "172.16.1.99",
+  "keyring_service": "panos_api_admin",
+  "keyring_username": "admin",
+  "skip_verify_certificate": true
+}
