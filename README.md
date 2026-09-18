@@ -528,17 +528,22 @@ including changes outside this Terraform environment, and does not push to
 firewalls. `.this["group/template"]` remains a scoped partial commit.
 The combined `commit_and_push` action also retains its scoped partial commit.
 
-Zone protection is configured in `templates.spoke.zone_protection_profiles` in
-root tfvars. The `wan` and `lan` entries create separate profiles and attach them
+Shared zone protection settings live in `env/lab/locals.tf`. Select them with
+`zone_protection_profile_set = "standard"` in a template entry in
+`templates.auto.tfvars`. The root resolves that name and passes `local.templates`
+to the template module; tfvars cannot reference locals directly. The `wan` and `lan` entries create separate profiles and attach them
 to their respective zones through `network.zone_protection_profile`. The reusable
 `network/zone_protection_profile` module supports multiple profiles and returns
-`name_id` and `names` maps. Callers that omit the profile map create no profiles.
+`name_id` and `names` maps. Templates that omit the set selector create no profiles.
+Profile names are explicit in the shared WAN/LAN definitions in `locals.tf`:
+`spoke-wan-protection` and `spoke-lan-protection`. Each selected template creates
+its own profiles with those names in its template scope.
 
 The lab enables SYN cookies, UDP/ICMP/ICMPv6/other-IP flood protection, TCP/UDP
 scan and host-sweep blocking, and malformed/source-routing/TCP packet checks.
 Spoofed-IP checks are enabled on LAN only; its ingress source routes must point
 back to LAN. ICMP errors and fragmentation-needed replies remain available.
-Authorized vulnerability scanners can be added to `scan_white_list` in tfvars.
+Authorized vulnerability scanners can be added to `scan_white_list` in the shared locals.
 
 Flood rates are **lab starting points, not vendor-recommended universal values**:
 TCP SYN/UDP/other IP use alarm/activate/maximum rates of 1000/2000/4000 new

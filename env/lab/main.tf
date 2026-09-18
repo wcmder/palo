@@ -7,7 +7,7 @@ module "device_groups" {
 
 module "templates" {
   source = "../../stacks/lab/spoke_template"
-  items  = var.templates
+  items  = local.templates
 }
 
 # Common policies use explicit tfvars inputs, independent of network templates.
