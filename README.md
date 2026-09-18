@@ -278,6 +278,23 @@ palo lab apply -invoke='action.panos_commit.all'
 palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
 ```
 
+To push every configured target after the commit succeeds:
+
+```sh
+palo lab push-all --dry-run
+palo lab push-all
+```
+
+`push-all` evaluates `local.deployment_items` using Terraform console, lists the
+selected targets and serials, and asks for one confirmation. It pushes targets
+sequentially and stops on the first failure. Use `--auto-approve` to skip the
+batch prompt. It does not apply resource changes, write variable overrides, or
+commit Panorama. Earlier successful pushes are not rolled back on failure.
+“All” means this environment's configured group/template intersections, not all
+firewalls in Panorama. Complete your configuration apply and commit first.
+The command uses default environment variable files; additional Terraform flags
+are not accepted, and inherited `TF_CLI_ARGS*` options are ignored.
+
 For a scoped commit, or a combined commit and push:
 
 ```sh

@@ -3,6 +3,13 @@
 # Explicit actions live in the reusable module; no automatic action triggers.
 #
 # Commit and push are separate commands; you can stop after commit and push later.
+# Before any push-only action or push-all, successfully commit the changes you
+# intend to deploy to Panorama. Push sends committed configuration only; it does
+# not commit pending edits. To commit all configured lab containers first:
+# palo lab apply -invoke='action.panos_commit.all'
+# Wait for success before pushing. If those changes were already committed through
+# Terraform or the Panorama GUI, another commit is unnecessary. The combined
+# commit_and_push action performs its own commit before pushing its target.
 #
 # Step 1: Apply candidate configuration (does not commit or push).
 # palo lab plan
@@ -19,6 +26,11 @@
 # palo lab plan -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
 # Execute:
 # palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+#
+# Push every configured target after a successful commit:
+# palo lab apply -invoke='action.panos_commit.all'
+# palo lab push-all --dry-run
+# palo lab push-all
 #
 # Step 3: PUSH ONLY to assigned firewalls, after the Panorama commit succeeds.
 # This pushes committed configuration; it does not commit new Panorama edits.
@@ -55,7 +67,15 @@ module "deployment" {
 }
 
 # Commit all policy/template containers, including groups without assigned devices.
+# This action is declared in the environment root, so its address has no module prefix.
+# Preview:
+# palo lab plan -invoke='action.panos_commit.all'
+# Execute:
 # palo lab apply -invoke='action.panos_commit.all'
+# Per-target actions declared inside module.deployment require that module prefix,
+# for example: module.deployment.action.panos_commit.this["spoke/spoke"].
+# After commit-all succeeds, push every configured target with:
+# palo lab push-all
 action "panos_commit" "all" {
   config {
     description     = "Commit lab policy and templates"

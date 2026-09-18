@@ -62,11 +62,21 @@ def main():
         print("Usage: palo <environment> <terraform-command> [arguments...]\n"
               "Examples: palo lab plan | palo lab apply | palo lab2 plan\n"
               "Device variables: palo lab overrides plan | palo lab overrides apply [--device paa]\n"
+              "Push all targets: palo lab push-all [--dry-run] [--auto-approve]\n"
               "Paths passed to Terraform are relative to the selected environment.\n"
               "init, validate, fmt, test, version and providers do not read keyring.")
         return 0
     try:
         workspace = workspace_root(os.environ)
+        if len(sys.argv) >= 3 and sys.argv[2] == "push-all":
+            from . import push_all
+            options = push_all.parser().parse_args(sys.argv[3:])
+            executable = shutil.which("terraform")
+            if executable is None:
+                raise ValueError("terraform is not on PATH.")
+            command, child = prepare([sys.argv[1], "push-all"], workspace, os.environ)
+            root = Path(command[1].removeprefix("-chdir="))
+            return push_all.run(options, root, child, executable)
         if len(sys.argv) >= 3 and sys.argv[2] == "overrides":
             from . import overrides
             options = overrides.parser().parse_args(sys.argv[3:])

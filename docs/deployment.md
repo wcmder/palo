@@ -114,3 +114,21 @@ Run `palo lab overrides plan` and `palo lab overrides apply` after the normal
 Terraform apply and before commit/push. See [per-device overrides](device-overrides.md).
 `--device` only limits helper writes; actions still target the full selected
 policy/template intersection.
+
+## Push every configured target
+
+After applying configuration/overrides and successfully committing Panorama:
+
+```sh
+palo lab push-all --dry-run
+palo lab push-all
+```
+
+The command discovers current `local.deployment_items` through Terraform console,
+shows target keys and serials, and requests one batch confirmation. Each push
+runs sequentially through the existing provider action. It stops at the first
+failure, reports completed targets, and never automatically retries or rolls back.
+Check Panorama job results before retrying. `--auto-approve` skips confirmation.
+An empty target map performs no pushes. The command does not commit, apply
+configuration resources, or update device overrides. It uses the selected
+root's default inputs and ignores inherited `TF_CLI_ARGS*` options.
