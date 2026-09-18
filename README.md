@@ -4,7 +4,6 @@ Environment roots call composed stacks, which call reusable feature modules:
 
 ```text
 env/lab/                       Runnable lab root and offline tests
-stacks/lab/panorama/            Multi-site Panorama foundation
 stacks/lab/spoke/               Policy and template module composition
   template/main.tf             Templates, stacks, variables, and WAN/LAN networking
   policy/main.tf               Device groups; future security and NAT rules
@@ -263,8 +262,7 @@ entry and assign device-specific IP values using `palo lab overrides plan` and
 `palo lab overrides apply`, or Panorama's Managed Devices view. See
 [per-device overrides](docs/device-overrides.md).
 
-The separate foundation-only `sites` map keeps its existing schema. Security
-and NAT policies are not created yet. State is local initially and ignored by
+Security and NAT policies are not created yet. State is local initially and ignored by
 Git; keep `.terraform.lock.hcl` in version control.
 
 ## Commit to Panorama and push to firewalls
@@ -281,8 +279,7 @@ palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spo
 `module.deployment`. Normal apply does not
 invoke them. Commit is scoped to the spoke's device group, template and stack.
 Push includes template configuration and targets only the spoke's serials.
-Spokes with `serials = []` have no push action. The actions cover `spokes`, not
-legacy `sites`. See [deployment](docs/deployment.md) for the full sequence,
+Spokes with `serials = []` have no push action. The actions cover `spokes`. See [deployment](docs/deployment.md) for the full sequence,
 action previews, and retry behavior.
 
 Alternatively, after candidate apply, commit and push together:
@@ -304,7 +301,7 @@ terraform -chdir=env/lab test
 ```
 
 Mock-provider tests exercise two instances of every feature module, decoded
-identifier names, policy order, two-site stack composition, and multi-spoke
+identifier names, policy order, multi-spoke
 variable/addressing configuration. They also verify explicit values and pass-through fields, reject duplicate interfaces,
 invalid prefixes, and off-subnet gateways. Action tests verify that only assigned spokes are
 eligible for push and that blank serials are rejected. They do not

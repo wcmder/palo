@@ -50,27 +50,6 @@ spokes = {
 
 }
 
-# Optional foundation-only sites: creates containers and address objects,
-# without interface, zone, routing, or template-variable configuration.
-# Use sites = {} (or omit it) if only the spoke configuration is needed.
-# Names and assigned firewall serials must not overlap with the spokes map.
-# The lab deployment actions currently target spokes only, not sites.
-sites = {
-  site01 = {
-    device_group   = "lab-site01"
-    template       = "lab-site01-network"
-    template_stack = "lab-site01-stack"
-    description    = "Foundation-only lab site"
-    serials        = [] # Optional: serial numbers of already managed firewalls.
-    addresses = {
-      "site01-lan"    = "203.0.113.0/25"
-      "site01-server" = "203.0.113.130/32"
-    }
-  }
-}
-
-
-
 # Shared template/stack alternative: use one entry with both serials.
 # Set template.var.wan_ip, lan_ip and default_gateway to "None",
 # and omit the prefixes or set them to null. Assign per-device values with

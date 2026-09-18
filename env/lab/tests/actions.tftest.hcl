@@ -4,7 +4,6 @@ mock_provider "panos" {}
 run "push_only_assigned_spokes" {
   command = plan
   variables {
-    sites = {}
     spokes = {
       unassigned = {
         policy = {
@@ -74,7 +73,6 @@ run "push_only_assigned_spokes" {
 run "reject_blank_serial" {
   command = plan
   variables {
-    sites = {}
     spokes = {
       invalid = {
         policy = {

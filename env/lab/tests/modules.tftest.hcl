@@ -108,34 +108,3 @@ run "multiple_resources_and_identifiers" {
     error_message = "nat_policy import identity must preserve rule ordering."
   }
 }
-
-run "two_site_lab" {
-  command = apply
-  variables {
-    sites = {
-      branch01 = {
-        device_group   = "lab-branch01"
-        template       = "lab-branch01-network"
-        template_stack = "lab-branch01-stack"
-        addresses = {
-          "branch01-lan"     = "192.0.2.0/25"
-          "branch01-servers" = "192.0.2.128/25"
-        }
-      }
-      branch02 = {
-        device_group   = "lab-branch02"
-        template       = "lab-branch02-network"
-        template_stack = "lab-branch02-stack"
-        addresses = {
-          "branch02-lan"     = "198.51.100.0/25"
-          "branch02-servers" = "198.51.100.128/25"
-        }
-      }
-    }
-
-  }
-  assert {
-    condition     = length(module.panorama.name_id.device_groups) == 2 && length(module.panorama.name_id.addresses.branch01) == 2
-    error_message = "The composed lab must create both sites and their addresses."
-  }
-}

@@ -65,7 +65,7 @@ committed to Panorama. Firewalls must already be managed by Panorama.
 
 The current lab inputs have `serials = []`, so only its commit action exists.
 To push, set real serials, apply those membership changes, commit, and then
-invoke push. The actions apply to `spokes`, not the legacy `sites` foundation.
+invoke push. The actions apply to the policy/template configuration in `spokes`.
 
 Mocked tests verify configuration and target selection. No live commit or push
 was performed during implementation. Verify job results in Panorama during
