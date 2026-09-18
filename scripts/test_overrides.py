@@ -76,27 +76,13 @@ class OverridesTest(unittest.TestCase):
         b['serial'] = 'serial-b'
         b['var'] = {'wan_ip': '10.2.1.2/24', 'default_gateway': '10.2.1.1'}
         self.assertEqual(len(self.load({'paa': DEVICE, 'pab': b})), 2)
-        for field, value in [('serial', "x']/bad"), ('var', {'wan_ip': 'not-an-ip'}), ('var', {'unknown': 'x'}), ('var', {'wan_ip': 'None'}), ('var', {'wan_ip': '10.0.1.2/24', 'default_gateway': '10.2.1.1'})]:
+        for field, value in [('serial', "x']/bad"), ('var', {'wan_ip': '10.0.1.2'}), ('var', {'unknown': 'x'}), ('var', {'wan_ip': 'None'}), ('var', {'wan_ip': '10.0.1.2/24', 'default_gateway': '10.2.1.1'})]:
             bad = copy.deepcopy(DEVICE)
             bad[field] = value
             with self.subTest(field=field, value=value), self.assertRaises(ValueError):
                 self.load({'bad': bad})
         with self.assertRaises(ValueError):
             self.load({'a': DEVICE, 'b': DEVICE})
-
-    def test_custom_dmz_variable(self):
-        api = FakeAPI()
-        original = api.get
-        def with_dmz(path):
-            result = original(path)
-            if '/template/' in path:
-                result.find('./result/variable').append(ET.fromstring('<entry name="$dmz_ip"><type><ip-netmask>None</ip-netmask></type></entry>'))
-            return result
-        api.get = with_dmz
-        device = dict(DEVICE, var={'dmz_ip': '10.3.1.2/24'})
-        devices = self.load({'paa': device})
-        self.assertEqual(ov.apply_changes(api, ov.preview(api, devices)), 1)
-        self.assertEqual(ov.preview(api, devices), [])
 
     def test_duplicate_json_keys(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate'):

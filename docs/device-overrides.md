@@ -92,9 +92,8 @@ remove an override and resume inheritance, use JSON `null`, for example:
 ```
 
 If the inherited template value is `None`, the reset leaves that variable
-unassigned. Supply the required values before pushing. Override values accept IPv4 addresses or CIDR notation; interface addresses
-should include their prefix. Any IP Netmask variable identifier is supported,
-for example `"dmz_ip": "10.3.1.2/24"`, after that variable is defined in Terraform. When both WAN IP and gateway
+unassigned. Supply the required values before pushing. Override IPs require
+CIDR notation; the gateway is an IPv4 address. When both WAN IP and gateway
 are provided, the helper checks they are different addresses in the same subnet.
 
 The helper validates every selected target before writing, checks that the

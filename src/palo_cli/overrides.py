@@ -9,7 +9,7 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-
+FIELDS = {'wan_ip', 'lan_ip', 'default_gateway'}
 
 
 def unique_object(pairs):
@@ -44,20 +44,22 @@ def load_devices(path, selected=None):
             raise ValueError('Each serial must occur only once in the override file.')
         seen.add(item['serial'])
         values = item['var']
-        if not isinstance(values, dict) or not values or any(not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', field) for field in values):
-            raise ValueError(name + ': var must contain variable identifiers without the $ prefix.')
+        if not isinstance(values, dict) or not values or set(values) - FIELDS:
+            raise ValueError(name + ': var supports wan_ip, lan_ip and default_gateway only.')
         for field, value in values.items():
             if value is None:  # Explicit reset to inheritance.
                 continue
             try:
                 if not isinstance(value, str):
                     raise ValueError()
-                if '/' not in value:
+                if field == 'default_gateway':
                     ipaddress.IPv4Address(value)
                 else:
+                    if '/' not in value:
+                        raise ValueError()
                     ipaddress.IPv4Interface(value)
             except ValueError:
-                raise ValueError(name + ': ' + field + ' requires an IPv4 address or address/prefix.') from None
+                raise ValueError(name + ': ' + field + ' requires IPv4' + (' address.' if field == 'default_gateway' else ' address/prefix.')) from None
         wan, gateway = values.get('wan_ip'), values.get('default_gateway')
         if wan is not None and gateway is not None:
             interface = ipaddress.IPv4Interface(wan)

@@ -11,81 +11,20 @@ run "push_only_assigned_spokes" {
           device_group = "test-shared"
         }
         template = {
-          name  = "test-unassigned-network"
-          stack = "test-unassigned-stack"
+          name        = "test-unassigned-network"
+          stack       = "test-unassigned-stack"
+          description = "Terraform-managed spoke"
           var = {
-            wan_ip = {
-              description = "WAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "192.0.2.2/30"
-              }
-            }
-            lan_ip = {
-              description = "LAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "198.51.100.1/24"
-              }
-            }
-            default_gateway = {
-              description = "WAN next hop for the IPv4 default route"
-              type = {
-                ip_netmask = "192.0.2.1"
-              }
-            }
-          }
-          interfaces = {
-            wan = {
-              name    = "ethernet1/1"
-              comment = "WAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$wan_ip"
-                }]
-              }
-            }
-            lan = {
-              name    = "ethernet1/2"
-              comment = "LAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$lan_ip"
-                }]
-              }
-            }
-          }
-          zones = {
-            wan = {
-              name = "wan"
-              network = {
-                layer3 = ["ethernet1/1"]
-              }
-            }
-            lan = {
-              name = "lan"
-              network = {
-                layer3 = ["ethernet1/2"]
-              }
-            }
-          }
-          routers = {
-            spoke = {
-              name       = "spoke-vr"
-              interfaces = ["ethernet1/1", "ethernet1/2"]
-            }
-          }
-          routes = {
-            default = {
-              virtual_router = "spoke-vr"
-              destination    = "0.0.0.0/0"
-              interface      = "ethernet1/1"
-              metric         = 10
-              nexthop = {
-                ip_address = "$default_gateway"
-              }
-              route_table = {
-                unicast = {}
-              }
-            }
+            wan_interface     = "ethernet1/1"
+            lan_interface     = "ethernet1/2"
+            wan_zone          = "wan"
+            lan_zone          = "lan"
+            wan_ip            = "192.0.2.2"
+            wan_prefix_length = 30
+            lan_ip            = "198.51.100.1"
+            lan_prefix_length = 24
+            default_gateway   = "192.0.2.1"
+            virtual_router    = "spoke-vr"
           }
         }
       }
@@ -94,81 +33,20 @@ run "push_only_assigned_spokes" {
           device_group = "test-shared"
         }
         template = {
-          name  = "test-assigned-network"
-          stack = "test-assigned-stack"
+          name        = "test-assigned-network"
+          stack       = "test-assigned-stack"
+          description = "Terraform-managed spoke"
           var = {
-            wan_ip = {
-              description = "WAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "192.0.2.6/30"
-              }
-            }
-            lan_ip = {
-              description = "LAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "203.0.113.1/24"
-              }
-            }
-            default_gateway = {
-              description = "WAN next hop for the IPv4 default route"
-              type = {
-                ip_netmask = "192.0.2.5"
-              }
-            }
-          }
-          interfaces = {
-            wan = {
-              name    = "ethernet1/1"
-              comment = "WAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$wan_ip"
-                }]
-              }
-            }
-            lan = {
-              name    = "ethernet1/2"
-              comment = "LAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$lan_ip"
-                }]
-              }
-            }
-          }
-          zones = {
-            wan = {
-              name = "wan"
-              network = {
-                layer3 = ["ethernet1/1"]
-              }
-            }
-            lan = {
-              name = "lan"
-              network = {
-                layer3 = ["ethernet1/2"]
-              }
-            }
-          }
-          routers = {
-            spoke = {
-              name       = "spoke-vr"
-              interfaces = ["ethernet1/1", "ethernet1/2"]
-            }
-          }
-          routes = {
-            default = {
-              virtual_router = "spoke-vr"
-              destination    = "0.0.0.0/0"
-              interface      = "ethernet1/1"
-              metric         = 10
-              nexthop = {
-                ip_address = "$default_gateway"
-              }
-              route_table = {
-                unicast = {}
-              }
-            }
+            wan_interface     = "ethernet1/1"
+            lan_interface     = "ethernet1/2"
+            wan_zone          = "wan"
+            lan_zone          = "lan"
+            wan_ip            = "192.0.2.6"
+            wan_prefix_length = 30
+            lan_ip            = "203.0.113.1"
+            lan_prefix_length = 24
+            default_gateway   = "192.0.2.5"
+            virtual_router    = "spoke-vr"
           }
         }
         serials = ["test-serial-01", "test-serial-02"]
@@ -203,81 +81,20 @@ run "reject_blank_serial" {
           device_group = "test-invalid"
         }
         template = {
-          name  = "test-invalid-network"
-          stack = "test-invalid-stack"
+          name        = "test-invalid-network"
+          stack       = "test-invalid-stack"
+          description = "Terraform-managed spoke"
           var = {
-            wan_ip = {
-              description = "WAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "192.0.2.2/30"
-              }
-            }
-            lan_ip = {
-              description = "LAN interface IPv4 address and prefix length"
-              type = {
-                ip_netmask = "198.51.100.1/24"
-              }
-            }
-            default_gateway = {
-              description = "WAN next hop for the IPv4 default route"
-              type = {
-                ip_netmask = "192.0.2.1"
-              }
-            }
-          }
-          interfaces = {
-            wan = {
-              name    = "ethernet1/1"
-              comment = "WAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$wan_ip"
-                }]
-              }
-            }
-            lan = {
-              name    = "ethernet1/2"
-              comment = "LAN interface"
-              layer3 = {
-                ips = [{
-                  name = "$lan_ip"
-                }]
-              }
-            }
-          }
-          zones = {
-            wan = {
-              name = "wan"
-              network = {
-                layer3 = ["ethernet1/1"]
-              }
-            }
-            lan = {
-              name = "lan"
-              network = {
-                layer3 = ["ethernet1/2"]
-              }
-            }
-          }
-          routers = {
-            spoke = {
-              name       = "spoke-vr"
-              interfaces = ["ethernet1/1", "ethernet1/2"]
-            }
-          }
-          routes = {
-            default = {
-              virtual_router = "spoke-vr"
-              destination    = "0.0.0.0/0"
-              interface      = "ethernet1/1"
-              metric         = 10
-              nexthop = {
-                ip_address = "$default_gateway"
-              }
-              route_table = {
-                unicast = {}
-              }
-            }
+            wan_interface     = "ethernet1/1"
+            lan_interface     = "ethernet1/2"
+            wan_zone          = "wan"
+            lan_zone          = "lan"
+            wan_ip            = "192.0.2.2"
+            wan_prefix_length = 30
+            lan_ip            = "198.51.100.1"
+            lan_prefix_length = 24
+            default_gateway   = "192.0.2.1"
+            virtual_router    = "spoke-vr"
           }
         }
         serials = [""]

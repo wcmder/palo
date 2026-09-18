@@ -208,78 +208,64 @@ state, or saved plans. No launcher changes are required.
 
 ## Spoke lab inputs
 
-Root and composition modules use `type = any` and pass child objects through
-with `merge`. They no longer repeat resource attribute schemas. Typed validation
-remains in `stacks/modules/panos/`; template-level checks cover duplicate
-container/interface names and invalid IP Netmask variable values.
-
-Each `spokes` entry contains shared `serials`, `policy`, and `template` settings.
-Inside `template`, configure named resources through maps:
-
-| Map | Entry contents |
-| --- | --- |
-| `var` | Native Panorama variable definition, such as `type = { ip_netmask = "None" }`; the key `dmz_ip` creates `$dmz_ip` |
-| `interfaces` | Ethernet attributes, including `name` and `layer3` |
-| `zones` | Zone attributes, including `network`; name defaults to the map key |
-| `routers` | Virtual-router attributes, including `interfaces`; name defaults to the key |
-| `routes` | IPv4 static-route attributes, including `virtual_router`, `destination`, and `nexthop`; name defaults to the key |
-
-All five maps are optional; omitted maps create no resources of that type.
-Template `name` and `stack` are required. The module supplies the template
-location; `vsys` defaults to `vsys1`. Values inside resource maps use the
-underlying resource module's schema, so supported attributes such as Ethernet
-`layer3.mtu` can be supplied without editing the parent variables.tf files.
-
-For example, these entries inside `template` create a DMZ variable, interface,
-and zone (merge them into the corresponding maps if those maps already exist):
+Each entry groups its settings into `policy` and `template`, with `serials`
+shared by both:
 
 ```hcl
-var = {
-  dmz_ip = { type = { ip_netmask = "None" } }
-}
-interfaces = {
-  dmz = {
-    name = "ethernet1/3"
-    layer3 = {
-      mtu = 1500
-      ips = [{ name = "$dmz_ip" }]
+spokes = {
+  spoke = {
+    serials = ["PA_A_SERIAL", "PA_B_SERIAL"]
+    policy = {
+      device_group = "spoke"
+    }
+    template = {
+      name  = "spoke-network"
+      stack = "spoke-stack"
+      description = "Terraform-managed spoke"
+      var = {
+        wan_interface     = "ethernet1/1"
+        lan_interface     = "ethernet1/2"
+        wan_zone = "wan"
+        lan_zone = "lan"
+        wan_ip            = "None"
+        wan_prefix_length = null
+        lan_ip            = "None"
+        lan_prefix_length = null
+        default_gateway   = "None"
+        virtual_router    = "spoke-vr"
+      }
     }
   }
 }
-zones = {
-  dmz = { network = { layer3 = ["ethernet1/3"] } }
-}
 ```
 
-Add `ethernet1/3` to the chosen router's `interfaces` list if it should route
-traffic. References use actual interface/router names, not map keys. Module
-dependencies ensure variables and interfaces exist before dependent configuration.
+The root and composition inputs use `type = any` instead of repeating every
+field's schema. Parent modules pass through child objects with `merge`.
+`template/main.tf` explicitly defines the WAN/LAN interfaces, zones, three
+Panorama variables, virtual router, and default route. Resource modules retain
+typed schemas. The template module validates current addressing inputs once.
 
-See [terraform.tfvars.example](env/lab/terraform.tfvars.example) for a complete
-configuration. The previous fixed fields such as `wan_interface`, `wan_zone`,
-and `wan_prefix_length` have been replaced. IP Netmask values now contain the
-address and prefix together, e.g. `"10.0.1.2/24"`, or `"None"`. Router and zone
-names are explicit map values instead of hidden WAN/LAN defaults. Existing
-lab keys (`wan`, `lan`, `spoke`, `default`) were preserved to retain resource
-addresses and the `name_id` output format. Renaming those keys requires state
-migration; changing the input schema itself does not.
+Template inputs are explicit: set `description` in `template`, and provide
+`wan_ip`, `wan_prefix_length`, `lan_ip`, `lan_prefix_length`, `default_gateway`,
+`virtual_router`, `wan_zone`, and `lan_zone` inside `template.var`, along with
+the interface names. Use the literal string `"None"` for unassigned IPs/gateway
+and `null` for their unused prefixes. There is no local defaults/merge block
+in the template module. Serial assignments are passed in by the parent.
 
-To share a template and stack across firewalls, use one `spokes` entry with
-multiple serials. Assign per-device variable values with `palo lab overrides
-plan` / `palo lab overrides apply` using `env/lab/device_overrides.json`, or in
-Panorama's Managed Devices view. The helper accepts additional IP Netmask
-variable names, including `dmz_ip`; no Python field list needs updating.
-See [per-device overrides](docs/device-overrides.md) for the deployment sequence.
+To add a DMZ, add its input values in tfvars and the explicit resource entries
+in `template/main.tf`. You do not need to mirror those new fields in all parent
+`variables.tf` files. An unused input alone does not create a resource.
 
-Each additional entry needs unique template/stack names; device groups can be
-shared. The foundation-only `sites` map still uses its own existing schema.
-Security and NAT rules are not created yet. New resource types require adding
-a module call in the relevant composition, but no mirrored parent schema edits.
-Generic routing no longer assumes a WAN/LAN topology or enforces a WAN gateway
-subnet relationship; configure valid routes for your topology and review the plan.
+See [terraform.tfvars.example](env/lab/terraform.tfvars.example) for complete
+examples. Multiple entries can share a device group; each entry owns its own
+template/stack. For shared templates and stacks, list multiple serials in one
+entry and assign device-specific IP values using `palo lab overrides plan` and
+`palo lab overrides apply`, or Panorama's Managed Devices view. See
+[per-device overrides](docs/device-overrides.md).
 
-State is local initially and ignored by Git. Keep `.terraform.lock.hcl` in
-version control.
+The separate foundation-only `sites` map keeps its existing schema. Security
+and NAT policies are not created yet. State is local initially and ignored by
+Git; keep `.terraform.lock.hcl` in version control.
 
 ## Commit to Panorama and push to firewalls
 
@@ -319,8 +305,8 @@ terraform -chdir=env/lab test
 
 Mock-provider tests exercise two instances of every feature module, decoded
 identifier names, policy order, two-site stack composition, and multi-spoke
-variable/addressing configuration. They also exercise DMZ additions, different resource maps per template,
-duplicate interface rejection, and invalid IP variable values. Action tests verify that only assigned spokes are
+variable/addressing configuration. They also verify explicit values and pass-through fields, reject duplicate interfaces,
+invalid prefixes, and off-subnet gateways. Action tests verify that only assigned spokes are
 eligible for push and that blank serials are rejected. They do not
 verify device-side acceptance or perform live commits/pushes.
 
