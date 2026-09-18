@@ -2,6 +2,7 @@ variable "items" {
   description = "Deployment targets keyed by stable names. Each target commits its containers and optionally pushes to explicit firewall serials."
   type = map(object({
     device_group   = string
+    device_groups  = optional(list(string), [])
     template       = string
     template_stack = string
     serials        = optional(list(string), [])

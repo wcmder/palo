@@ -1,56 +1,51 @@
-# Two spokes sharing one device group. Replace documentation addresses before deployment.
-# Leave serials empty to create the Panorama configuration without assigning a firewall.
-spokes = {
-  spoke01 = {
-    policy = {
-      device_group = "lab-spoke"
-    }
-    template = {
-      name        = "lab-spoke-network"
-      stack       = "lab-spoke-stack"
-      description = "Terraform-managed spoke"
-      var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone          = "wan"
-        lan_zone          = "lan"
-        wan_ip            = "192.0.2.2"
-        wan_prefix_length = 30
-        lan_ip            = "198.51.100.1"
-        lan_prefix_length = 24
-        default_gateway   = "192.0.2.1"
-        virtual_router    = "spoke-vr"
-      }
-    }
-    serials = []
-  }
-  spoke02 = {
-    policy = {
-      device_group = "lab-spoke" # Shared with spoke01.
-    }
-    template = {
-      name        = "lab-spoke-b-network"
-      stack       = "lab-spoke-b-stack"
-      description = "Terraform-managed spoke"
-      var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone          = "wan"
-        lan_zone          = "lan"
-        wan_ip            = "192.0.2.6"
-        wan_prefix_length = 30
-        lan_ip            = "203.0.113.1"
-        lan_prefix_length = 24
-        default_gateway   = "192.0.2.5"
-        virtual_router    = "spoke-vr"
-      }
-    }
-    serials = []
-  }
-
+# A/B/C can represent 300/500/200 firewalls. Add real serials to their child groups.
+# parent=null explicitly manages the group under Panorama Shared.
+device_groups = {
+  parent_a   = { parent = null, serials = [] }
+  parent_b   = { parent = null, serials = [] }
+  parent_c   = { parent = null, serials = [] }
+  branches_a = { parent = "parent_a", serials = ["PA_A_SERIAL"] }
+  branches_b = { parent = "parent_b", serials = ["PA_B_SERIAL"] }
+  branches_c = { parent = "parent_c", serials = ["PA_C_SERIAL"] }
+  hubs_a     = { parent = "parent_a", serials = ["HUB_A_SERIAL"] }
 }
 
-# Shared template/stack alternative: use one entry with both serials.
-# Set template.var.wan_ip, lan_ip and default_gateway to "None",
-# and omit the prefixes or set them to null. Assign per-device values with
-# device_overrides.json and palo lab overrides plan/apply before commit/push.
+# Network assignment is independent of policy: the same spoke stack serves all three families.
+templates = {
+  spoke = {
+    name        = "spoke-network"
+    stack       = "spoke-stack"
+    description = "Terraform-managed spoke"
+    var = {
+      wan_interface     = "ethernet1/1"
+      lan_interface     = "ethernet1/2"
+      wan_zone          = "wan"
+      lan_zone          = "lan"
+      wan_ip            = "None"
+      wan_prefix_length = null
+      lan_ip            = "None"
+      lan_prefix_length = null
+      default_gateway   = "None"
+      virtual_router    = "spoke-vr"
+    }
+    serials = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+  }
+  hub = {
+    name        = "hub-network"
+    stack       = "hub-stack"
+    description = "Terraform-managed hub"
+    var = {
+      wan_interface     = "ethernet1/1"
+      lan_interface     = "ethernet1/2"
+      wan_zone          = "wan"
+      lan_zone          = "lan"
+      wan_ip            = "None"
+      wan_prefix_length = null
+      lan_ip            = "None"
+      lan_prefix_length = null
+      default_gateway   = "None"
+      virtual_router    = "hub-vr"
+    }
+    serials = ["HUB_A_SERIAL"]
+  }
+}

@@ -19,71 +19,57 @@ run "multiple_variables_and_routes" {
 
 run "two_spokes" {
   command = apply
-  module { source = "../../stacks/lab/spoke" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       spoke01 = {
-        policy = {
-          device_group = "test-shared-spoke"
-        }
-        template = {
-          name        = "test-spoke01-network"
-          stack       = "test-spoke01-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/1"
-            lan_interface     = "ethernet1/2"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "192.0.2.2"
-            wan_prefix_length = 30
-            lan_ip            = "198.51.100.1"
-            lan_prefix_length = 24
-            default_gateway   = "192.0.2.1"
-            virtual_router    = "spoke-vr"
-          }
+        name        = "test-spoke01-network"
+        stack       = "test-spoke01-stack"
+        description = "Terraform-managed spoke"
+        var = {
+          wan_interface     = "ethernet1/1"
+          lan_interface     = "ethernet1/2"
+          wan_zone          = "wan"
+          lan_zone          = "lan"
+          wan_ip            = "192.0.2.2"
+          wan_prefix_length = 30
+          lan_ip            = "198.51.100.1"
+          lan_prefix_length = 24
+          default_gateway   = "192.0.2.1"
+          virtual_router    = "spoke-vr"
         }
         serials = ["test-serial-01"]
       }
       spoke02 = {
-        policy = {
-          device_group = "test-shared-spoke"
-        }
-        template = {
-          name        = "test-spoke02-network"
-          stack       = "test-spoke02-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/3"
-            lan_interface     = "ethernet1/4"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "192.0.2.6"
-            wan_prefix_length = 30
-            lan_ip            = "203.0.113.1"
-            lan_prefix_length = 25
-            default_gateway   = "192.0.2.5"
-            virtual_router    = "spoke-vr"
-          }
+        name        = "test-spoke02-network"
+        stack       = "test-spoke02-stack"
+        description = "Terraform-managed spoke"
+        var = {
+          wan_interface     = "ethernet1/3"
+          lan_interface     = "ethernet1/4"
+          wan_zone          = "wan"
+          lan_zone          = "lan"
+          wan_ip            = "192.0.2.6"
+          wan_prefix_length = 30
+          lan_ip            = "203.0.113.1"
+          lan_prefix_length = 25
+          default_gateway   = "192.0.2.5"
+          virtual_router    = "spoke-vr"
         }
         serials = ["test-serial-02"]
       }
     }
   }
   assert {
-    condition     = length(output.name_id.device_groups) == 1 && length(output.name_id.interfaces.spoke01) == 2 && length(output.name_id.variables.spoke02) == 3
-    error_message = "Spokes must share one device group while retaining separate templates, interfaces and variables."
+    condition     = length(output.name_id.interfaces.spoke01) == 2 && length(output.name_id.variables.spoke02) == 3
+    error_message = "Spokes must retain separate templates, interfaces and variables."
   }
   assert {
-    condition     = toset(output.device_group_memberships["test-shared-spoke"]) == toset(["test-serial-01", "test-serial-02"])
-    error_message = "The shared group must retain both spokes' serials."
-  }
-  assert {
-    condition     = module.template.variable_values["spoke01"]["$wan_ip"] == "192.0.2.2/30" && module.template.variable_values["spoke02"]["$lan_ip"] == "203.0.113.1/25"
+    condition     = output.variable_values["spoke01"]["$wan_ip"] == "192.0.2.2/30" && output.variable_values["spoke02"]["$lan_ip"] == "203.0.113.1/25"
     error_message = "Native template variables must retain the host IP and supplied prefix."
   }
   assert {
-    condition     = module.template.variable_values["spoke02"]["$default_gateway"] == "192.0.2.5" && output.names.interfaces.spoke02.wan == "ethernet1/3"
+    condition     = output.variable_values["spoke02"]["$default_gateway"] == "192.0.2.5" && output.names.interfaces.spoke02.wan == "ethernet1/3"
     error_message = "The second spoke must use its own gateway and interface name."
   }
   assert {
@@ -94,29 +80,24 @@ run "two_spokes" {
 
 run "shared_stack_unassigned_variables" {
   command = apply
-  module { source = "../../stacks/lab/spoke" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       shared = {
-        policy = {
-          device_group = "shared"
-        }
-        template = {
-          name        = "shared-network"
-          stack       = "shared-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/1"
-            lan_interface     = "ethernet1/2"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "None"
-            wan_prefix_length = null
-            lan_ip            = "None"
-            lan_prefix_length = null
-            default_gateway   = "None"
-            virtual_router    = "spoke-vr"
-          }
+        name        = "shared-network"
+        stack       = "shared-stack"
+        description = "Terraform-managed spoke"
+        var = {
+          wan_interface     = "ethernet1/1"
+          lan_interface     = "ethernet1/2"
+          wan_zone          = "wan"
+          lan_zone          = "lan"
+          wan_ip            = "None"
+          wan_prefix_length = null
+          lan_ip            = "None"
+          lan_prefix_length = null
+          default_gateway   = "None"
+          virtual_router    = "spoke-vr"
         }
         serials = ["serial-a", "serial-b"]
 
@@ -126,12 +107,12 @@ run "shared_stack_unassigned_variables" {
   assert {
     condition = alltrue([
       for name in ["$wan_ip", "$lan_ip", "$default_gateway"] :
-      module.template.variable_values["shared"][name] == "None"
+      output.variable_values["shared"][name] == "None"
     ])
     error_message = "Unassigned variables must retain the literal Panorama None value."
   }
   assert {
-    condition     = length(output.name_id.templates) == 1 && length(output.name_id.template_stacks) == 1 && length(output.device_group_memberships.shared) == 2
+    condition     = length(output.name_id.templates) == 1 && length(output.name_id.template_stacks) == 1 && length(var.items.shared.serials) == 2
     error_message = "Both serials must share one template and stack."
   }
 }
@@ -140,7 +121,7 @@ run "shared_stack_unassigned_variables" {
 
 run "reject_same_interface" {
   command = plan
-  module { source = "../../stacks/lab/spoke/template" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       bad = {
@@ -168,7 +149,7 @@ run "reject_same_interface" {
 
 run "reject_off_subnet_gateway" {
   command = plan
-  module { source = "../../stacks/lab/spoke/template" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       bad = {
@@ -196,7 +177,7 @@ run "reject_off_subnet_gateway" {
 
 run "reject_unassigned_ip_with_prefix" {
   command = plan
-  module { source = "../../stacks/lab/spoke/template" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       bad = {
@@ -224,7 +205,7 @@ run "reject_unassigned_ip_with_prefix" {
 
 run "reject_assigned_ip_without_prefix" {
   command = plan
-  module { source = "../../stacks/lab/spoke/template" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       bad = {
@@ -252,7 +233,7 @@ run "reject_assigned_ip_without_prefix" {
 
 run "explicit_values_and_extra_fields" {
   command = plan
-  module { source = "../../stacks/lab/spoke/template" }
+  module { source = "../../stacks/lab/spoke_template" }
   variables {
     items = {
       example = {

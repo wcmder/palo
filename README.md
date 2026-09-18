@@ -4,9 +4,13 @@ Environment roots call composed stacks, which call reusable feature modules:
 
 ```text
 env/lab/                       Runnable lab root and offline tests
-stacks/lab/spoke/               Policy and template module composition
-  template/main.tf             Templates, stacks, variables, and WAN/LAN networking
-  policy/main.tf               Device groups; future security and NAT rules
+stacks/lab/device_grps/          Device groups, parent hierarchy and membership
+stacks/lab/policies/
+  common/                      Future common policies for parent groups
+  branch/                      Future branch policies for child groups
+  hub/                         Future hub policies for child groups
+stacks/lab/spoke_template/      Explicit templates, stacks and WAN/LAN networking
+stacks/lab/hub_template/        Placeholder for future distinct hub networking
 stacks/modules/panos/
   panorama/                    device_group, template, template_stack, template_variable
   objects/                     address, address_group, service, service_group, tag
@@ -205,90 +209,87 @@ Reuse the shared modules. Give each root its own state/backend key. Copy only
 source configuration when creating a new environment, never `.terraform`,
 state, or saved plans. No launcher changes are required.
 
-## Spoke lab inputs
+## Independent policy and network inputs
 
-Each entry groups its settings into `policy` and `template`, with `serials`
-shared by both:
+`device_groups` defines device groups by name, their `parent`, and firewall
+`serials`. `templates` defines network templates/stacks and their independent
+`serials`. A firewall belongs directly to one device group and one template stack.
+A parent provides inherited policy to its children; do not repeat child serials
+on the parent.
 
 ```hcl
-spokes = {
-  spoke = {
-    serials = ["PA_A_SERIAL", "PA_B_SERIAL"]
-    policy = {
-      device_group = "spoke"
-    }
-    template = {
-      name  = "spoke-network"
-      stack = "spoke-stack"
-      description = "Terraform-managed spoke"
-      var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone = "wan"
-        lan_zone = "lan"
-        wan_ip            = "None"
-        wan_prefix_length = null
-        lan_ip            = "None"
-        lan_prefix_length = null
-        default_gateway   = "None"
-        virtual_router    = "spoke-vr"
-      }
-    }
-  }
+device_groups = {
+  parent_a   = { parent = null, serials = [] }
+  parent_b   = { parent = null, serials = [] }
+  branches_a = { parent = "parent_a", serials = ["PA_A_SERIAL"] }
+  hubs_a     = { parent = "parent_a", serials = ["HUB_A_SERIAL"] }
+  branches_b = { parent = "parent_b", serials = ["PA_B_SERIAL"] }
 }
 ```
 
-The root and composition inputs use `type = any` instead of repeating every
-field's schema. Parent modules pass through child objects with `merge`.
-`template/main.tf` explicitly defines the WAN/LAN interfaces, zones, three
-Panorama variables, virtual router, and default route. Resource modules retain
-typed schemas. The template module validates current addressing inputs once.
+This supports multiple parent families, each with many firewalls. The root
+validates one parent tier plus child groups. Define each parent with
+`parent = null`; omitting `parent` leaves its existing hierarchy unmanaged.
+Native `panos_device_group_parent` resources manage explicit parent assignments.
+The provider runs a Panorama move-device-group job during apply for hierarchy
+changes; removing a managed relationship moves that group back under Shared.
 
-Template inputs are explicit: set `description` in `template`, and provide
-`wan_ip`, `wan_prefix_length`, `lan_ip`, `lan_prefix_length`, `default_gateway`,
-`virtual_router`, `wan_zone`, and `lan_zone` inside `template.var`, along with
-the interface names. Use the literal string `"None"` for unassigned IPs/gateway
-and `null` for their unused prefixes. There is no local defaults/merge block
-in the template module. Serial assignments are passed in by the parent.
+See [terraform.tfvars.example](env/lab/terraform.tfvars.example) for a complete
+three-parent example sharing one spoke network, plus a separate hub network.
+Existing lab values are preserved in `terraform.tfvars`; choose real parent
+names before adding a hierarchy to that lab group.
 
-To add a DMZ, add its input values in tfvars and the explicit resource entries
-in `template/main.tf`. You do not need to mirror those new fields in all parent
-`variables.tf` files. An unused input alone does not create a resource.
+Composition variables use `type = any`; resource modules retain typed inputs.
+The template module still explicitly defines WAN/LAN interfaces, zones, variables,
+a router and default route. Set all network values in `templates.<key>.var`.
+To add a DMZ, add its values there and explicit resource entries in spoke_template/main.tf;
+there is no need to duplicate the input schema across parent modules.
+Use `"None"` for unassigned IPs/gateway and `null` for unused prefixes.
+Assign device IP overrides with `palo lab overrides plan` and
+`palo lab overrides apply`; see [per-device overrides](docs/device-overrides.md).
+Security/NAT rule creation remains future work in `stacks/lab/policies/common`,
+`branch`, and `hub`. These folders currently contain scaffolds only; the root does
+not call them or create policy rules. When implemented, the root will pass target
+names from `module.device_grp.names`. Parent/child relationships remain entirely
+in `device_groups`, independent of these folders. One module instance must own
+each device-group/policy-type/rulebase scope; combine its ordered rules there.
 
-See [terraform.tfvars.example](env/lab/terraform.tfvars.example) for complete
-examples. Multiple entries can share a device group; each entry owns its own
-template/stack. For shared templates and stacks, list multiple serials in one
-entry and assign device-specific IP values using `palo lab overrides plan` and
-`palo lab overrides apply`, or Panorama's Managed Devices view. See
-[per-device overrides](docs/device-overrides.md).
-
-Security and NAT policies are not created yet. State is local initially and ignored by
-Git; keep `.terraform.lock.hcl` in version control.
+`hub_template` is also a scaffold. Hub devices with the same WAN/LAN resource
+layout can already use another `templates` entry. Implement a separate hub module
+only when its resource structure differs.
 
 ## Commit to Panorama and push to firewalls
 
-After a successful candidate-configuration apply, explicitly invoke each step:
-
 ```sh
-palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke01"]'
-# Run only after the commit succeeds and real serials have been assigned:
-palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke01"]'
+palo lab init
+palo lab plan
+palo lab apply
+palo lab overrides plan
+palo lab overrides apply
+# Commit all configured policy groups, templates and stacks:
+palo lab apply -invoke='action.panos_commit.all'
+# Push only the intersection of group "spoke" and template entry "spoke":
+palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
 ```
 
-`env/lab/actions.tf` calls the reusable `operations/commit_push` module as
-`module.deployment`. Normal apply does not
-invoke them. Commit is scoped to the spoke's device group, template and stack.
-Push includes template configuration and targets only the spoke's serials.
-Spokes with `serials = []` have no push action. The actions cover `spokes`. See [deployment](docs/deployment.md) for the full sequence,
-action previews, and retry behavior.
-
-Alternatively, after candidate apply, commit and push together:
+For a scoped commit, or a combined commit and push:
 
 ```sh
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke01"]'
+palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
-This combined action also requires non-empty `serials`.
+Scoped commits include the target's parent group, child group, template and stack.
+Action keys are `<device-group>/<template-key>`. Only non-empty serial
+intersections create deployment targets. Unassigned groups/templates can still
+be committed using `action.panos_commit.all`. Shared policy commits can include
+changes affecting other children; push each affected target deliberately.
+Normal apply does not invoke commit/push actions.
+
+The root `moved.tf` migrates existing policy/template resource addresses. Run
+`palo lab plan` and review the moves before applying; do not apply an old saved
+plan. No state migration occurs until you apply. Root outputs remain commented
+out; modules expose `name_id` maps.
 
 ## Offline checks
 
@@ -310,7 +311,3 @@ verify device-side acceptance or perform live commits/pushes.
 See [deployment](docs/deployment.md) for the deployment boundary.
 Provider reference: https://registry.terraform.io/providers/PaloAltoNetworks/panos/2.0.13/docs
 
-The lab's `moved.tf` preserves the existing PA-A device-group resource when
-switching from per-spoke keys to shared group-name keys. Run `palo lab plan`
-and review the move before applying. The actual lab tfvars keeps PA-A active;
-PA-B is a commented example awaiting its real network values.

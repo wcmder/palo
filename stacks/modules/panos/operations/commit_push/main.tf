@@ -4,8 +4,8 @@ action "panos_commit" "this" {
   for_each = var.items
 
   config {
-    description     = "Commit spoke ${each.key}"
-    device_groups   = [each.value.device_group]
+    description     = "Commit target ${each.key}"
+    device_groups   = distinct(concat(each.value.device_groups, [each.value.device_group]))
     templates       = [each.value.template]
     template_stacks = [each.value.template_stack]
     force           = false
@@ -24,7 +24,7 @@ action "panos_push_to_devices" "this" {
   for_each = local.push_items
 
   config {
-    description           = "Push spoke ${each.key}"
+    description           = "Push target ${each.key}"
     type                  = "device_group"
     name                  = each.value.device_group
     devices               = each.value.serials
@@ -38,8 +38,8 @@ action "panos_commit" "commit_and_push" {
   for_each = local.push_items
 
   config {
-    description     = "Commit and push spoke ${each.key}"
-    device_groups   = [each.value.device_group]
+    description     = "Commit and push target ${each.key}"
+    device_groups   = distinct(concat(each.value.device_groups, [each.value.device_group]))
     templates       = [each.value.template]
     template_stacks = [each.value.template_stack]
     force           = false

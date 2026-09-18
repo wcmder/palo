@@ -32,9 +32,9 @@ Create `env/lab/device_overrides.json` using
 ```
 
 Replace example serials and addresses. Both serials must already be assigned
-to `spoke-stack` by the Terraform `spokes.spoke.serials` list. The shared container names are `spokes.spoke.policy.device_group`,
-`spokes.spoke.template.name`, and `spokes.spoke.template.stack`. Template defaults
-are under `spokes.spoke.template.var`; this JSON file still holds per-device values.
+to `spoke-stack` by the Terraform `templates.spoke.serials` list. The shared container names are the key in `device_groups`,
+`templates.spoke.name`, and `templates.spoke.stack`. Template defaults
+are under `templates.spoke.var`; this JSON file still holds per-device values.
 One shared Terraform spoke entry can serve many devices; do not duplicate the template
 and stack for each firewall. The lab's local JSON file was populated from
 PA-A's existing GUI overrides; it is ignored by Git.
@@ -55,7 +55,7 @@ palo lab overrides plan
 palo lab overrides apply
 
 # Commit and push using the existing Terraform action.
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke"]'
+palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 `overrides` is a Python command in `palo`, not a Terraform command or resource.

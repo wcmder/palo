@@ -1,103 +1,119 @@
-# Mocked plan only: no commit/push invocation and no Panorama connection.
 mock_provider "panos" {}
 
-run "push_only_assigned_spokes" {
+run "independent_policy_and_template_membership" {
+  command = apply
+  variables {
+    device_groups = {
+      parent_a   = { parent = null, serials = [] }
+      parent_b   = { parent = null, serials = [] }
+      branches_a = { parent = "parent_a", serials = ["A", "H"] }
+      branches_b = { parent = "parent_b", serials = ["B"] }
+    }
+    templates = { shared = {
+      name        = "test-network"
+      stack       = "test-stack"
+      description = "Test network"
+      serials     = ["A", "B"]
+      var = {
+        wan_interface     = "ethernet1/1"
+        lan_interface     = "ethernet1/2"
+        wan_zone          = "wan"
+        lan_zone          = "lan"
+        wan_ip            = "None"
+        wan_prefix_length = null
+        lan_ip            = "None"
+        lan_prefix_length = null
+        default_gateway   = "None"
+        virtual_router    = "test-vr"
+      }
+      }, hub = {
+      name        = "hub-network"
+      stack       = "hub-stack"
+      description = "Test network"
+      serials     = ["H"]
+      var = {
+        wan_interface     = "ethernet1/1"
+        lan_interface     = "ethernet1/2"
+        wan_zone          = "wan"
+        lan_zone          = "lan"
+        wan_ip            = "None"
+        wan_prefix_length = null
+        lan_ip            = "None"
+        lan_prefix_length = null
+        default_gateway   = "None"
+        virtual_router    = "test-vr"
+      }
+    } }
+  }
+  assert {
+    condition     = keys(module.deployment.name_id.push) == ["branches_a/hub", "branches_a/shared", "branches_b/shared"]
+    error_message = "Push targets must be policy/template intersections, excluding empty parents."
+  }
+  assert {
+    condition     = module.deployment.push_targets["branches_a/shared"].serials == tolist(["A"]) && module.deployment.push_targets["branches_b/shared"].serials == tolist(["B"])
+    error_message = "Sharing a template must not push devices in a different policy group."
+  }
+  assert {
+    condition     = module.deployment.push_targets["branches_a/hub"].serials == tolist(["H"])
+    error_message = "One policy group must support separate hub and spoke stacks."
+  }
+  assert {
+    condition     = module.device_grp.parents.branches_a == "parent_a" && module.device_grp.parents.branches_b == "parent_b"
+    error_message = "Each child must reference its own parent."
+  }
+  assert {
+    condition     = jsondecode(base64decode(module.device_grp.parent_name_id.branches_a)).device_group == "branches_a"
+    error_message = "Hierarchy identity must use the provider's device_group import field."
+  }
+  assert {
+    condition     = local.deployment_items["branches_a/shared"].device_groups == tolist(["parent_a", "branches_a"])
+    error_message = "Scoped commits must include the inherited parent policy."
+  }
+}
+
+run "reject_missing_parent" {
   command = plan
   variables {
-    spokes = {
-      unassigned = {
-        policy = {
-          device_group = "test-shared"
-        }
-        template = {
-          name        = "test-unassigned-network"
-          stack       = "test-unassigned-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/1"
-            lan_interface     = "ethernet1/2"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "192.0.2.2"
-            wan_prefix_length = 30
-            lan_ip            = "198.51.100.1"
-            lan_prefix_length = 24
-            default_gateway   = "192.0.2.1"
-            virtual_router    = "spoke-vr"
-          }
-        }
-      }
-      assigned = {
-        policy = {
-          device_group = "test-shared"
-        }
-        template = {
-          name        = "test-assigned-network"
-          stack       = "test-assigned-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/1"
-            lan_interface     = "ethernet1/2"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "192.0.2.6"
-            wan_prefix_length = 30
-            lan_ip            = "203.0.113.1"
-            lan_prefix_length = 24
-            default_gateway   = "192.0.2.5"
-            virtual_router    = "spoke-vr"
-          }
-        }
-        serials = ["test-serial-01", "test-serial-02"]
-      }
+    device_groups = { bad = { parent = "missing", serials = [] } }
+    templates     = {}
+  }
+  expect_failures = [var.device_groups]
+}
+
+run "reject_hierarchy_cycle" {
+  command = plan
+  variables {
+    device_groups = {
+      a = { parent = "b", serials = [] }
+      b = { parent = "a", serials = [] }
     }
+    templates = {}
   }
-  assert {
-    condition     = keys(module.deployment.name_id.commit) == ["assigned", "unassigned"] && module.deployment.name_id.commit.assigned == "action.panos_commit.this[\"assigned\"]"
-    error_message = "Every target must expose a correctly indexed commit invocation address."
-  }
-  assert {
-    condition     = keys(module.deployment.name_id.push) == ["assigned"]
-    error_message = "Unassigned spokes must not expose a push action."
-  }
-  assert {
-    condition     = keys(module.deployment.name_id.commit_and_push) == ["assigned"] && module.deployment.name_id.commit_and_push.assigned == "action.panos_commit.commit_and_push[\"assigned\"]"
-    error_message = "Combined actions must target assigned spokes only and expose their invocation addresses."
-  }
-  assert {
-    condition     = module.deployment.push_targets.assigned.serials == tolist(["test-serial-01", "test-serial-02"])
-    error_message = "Push targets must retain the explicitly assigned serials."
-  }
+  expect_failures = [var.device_groups]
 }
 
 run "reject_blank_serial" {
   command = plan
   variables {
-    spokes = {
-      invalid = {
-        policy = {
-          device_group = "test-invalid"
-        }
-        template = {
-          name        = "test-invalid-network"
-          stack       = "test-invalid-stack"
-          description = "Terraform-managed spoke"
-          var = {
-            wan_interface     = "ethernet1/1"
-            lan_interface     = "ethernet1/2"
-            wan_zone          = "wan"
-            lan_zone          = "lan"
-            wan_ip            = "192.0.2.2"
-            wan_prefix_length = 30
-            lan_ip            = "198.51.100.1"
-            lan_prefix_length = 24
-            default_gateway   = "192.0.2.1"
-            virtual_router    = "spoke-vr"
-          }
-        }
-        serials = [""]
+    device_groups = {}
+    templates = { invalid = {
+      name        = "test-network"
+      stack       = "test-stack"
+      description = "Test network"
+      serials     = [""]
+      var = {
+        wan_interface     = "ethernet1/1"
+        lan_interface     = "ethernet1/2"
+        wan_zone          = "wan"
+        lan_zone          = "lan"
+        wan_ip            = "None"
+        wan_prefix_length = null
+        lan_ip            = "None"
+        lan_prefix_length = null
+        default_gateway   = "None"
+        virtual_router    = "test-vr"
       }
-    }
+    } }
   }
-  expect_failures = [var.spokes]
+  expect_failures = [var.templates]
 }

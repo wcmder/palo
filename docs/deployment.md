@@ -2,8 +2,7 @@
 
 The lab requires Terraform >= 1.14 and PAN-OS provider 2.0.13. Actions are
 defined in `stacks/modules/panos/operations/commit_push` and called from
-`env/lab/actions.tf` as `module.deployment`: one commit action per spoke and one push
-action per spoke with non-empty `serials`. They use the same keyring-based
+`env/lab/actions.tf` as `module.deployment`: one scoped commit/push target per non-empty device-group/template serial intersection. They use the same keyring-based
 provider connection as the configuration resources.
 
 1. Store Panorama credentials in keyring and set hostname/keyring selectors in
@@ -29,43 +28,45 @@ provider connection as the configuration resources.
 5. Review candidate changes and commit the selected spoke to Panorama:
 
    ```sh
-   palo lab plan -invoke='module.deployment.action.panos_commit.this["spoke01"]'
-   palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke01"]'
+   palo lab plan -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+   palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
    ```
 
 6. After the commit succeeds, push to the spoke's assigned firewalls:
 
    ```sh
-   palo lab plan -invoke='module.deployment.action.panos_push_to_devices.this["spoke01"]'
-   palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke01"]'
+   palo lab plan -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+   palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
    ```
 
-Replace `spoke01` with the input map key for another spoke. Keep the quoted
+Replace `spoke/spoke` with `<device-group>/<template-key>` for another target. Keep the quoted
 addresses so your shell does not interpret brackets or strip the key quotes.
 Each apply retains Terraform's interactive confirmation.
 
 ## Commit and push behavior
 
-Normal `palo lab apply` writes candidate configuration only. There are no
+Normal `palo lab apply` manages configuration, including move-device-group jobs for hierarchy changes, but does not invoke commit/push actions. There are no
 resource lifecycle action triggers. `-invoke` targets an operation rather than
 performing a normal configuration apply; it does not apply pending interface,
 variable or membership edits first. Complete step 4 before invoking actions.
 Commit and push are separate invocations; no automatic dependency between them
 is implied by their declarations.
 
-The commit selects the spoke's device group, template and template stack, with
+The commit selects the target's parent group, device group, template and template stack, with
 `force = false`. This is a configuration-scope selection, not a Terraform-only
 change filter: review other pending administrator edits in the same scopes.
 
-The push targets the device group and exactly the `serials` listed for that
-spoke, includes template configuration, and leaves `force_template_values =
-false` so it does not force template values over local overrides. An empty
-serial list creates no push action; configuration-only spokes can still be
-committed to Panorama. Firewalls must already be managed by Panorama.
+The push targets only serials present in both the device group and template
+entry. It includes template configuration and leaves `force_template_values = false`.
+Unassigned groups/templates have no scoped target; commit them using:
 
-The current lab inputs have `serials = []`, so only its commit action exists.
-To push, set real serials, apply those membership changes, commit, and then
-invoke push. The actions apply to the policy/template configuration in `spokes`.
+```sh
+palo lab plan -invoke='action.panos_commit.all'
+palo lab apply -invoke='action.panos_commit.all'
+```
+
+Firewalls must already be managed by Panorama. The actual lab retains PA-A's
+existing group/stack assignment.
 
 Mocked tests verify configuration and target selection. No live commit or push
 was performed during implementation. Verify job results in Panorama during
@@ -87,8 +88,8 @@ After applying candidate configuration, use this as an alternative to separate
 commit and push invocations:
 
 ```sh
-palo lab plan -invoke='module.deployment.action.panos_commit.commit_and_push["spoke01"]'
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke01"]'
+palo lab plan -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 The combined action uses the commit action's `push_configuration` option. It
@@ -101,17 +102,15 @@ the job results and retry the push-only action when appropriate.
 
 ## Shared device groups
 
-Spokes can reference the same device-group name. Its device membership is the
-combined serial list across all those spokes. A per-spoke commit includes that
-shared group's pending changes, potentially including membership or policy
-changes for another spoke. Push and combined actions still use only the
-selected spoke's serials and their assigned template configuration.
+`device_groups` owns group membership and parent relationships independently
+of `templates`. A parent commit can affect multiple child groups. Push every
+affected group/template target after changing inherited policy.
 
-For the existing lab state, `env/lab/moved.tf` migrates the PA-A group from key
-`paa` to key `spoke`; review this state move in the next normal plan/apply before
-invoking deployment actions.
+`env/lab/moved.tf` preserves existing resources while moving policy ownership
+to `module.device_grp` and network ownership to `module.templates`. Review these
+moves in a fresh plan before applying; do not use an older saved plan.
 
-For shared stacks with per-device variable values, run `palo lab overrides plan`
-and `palo lab overrides apply` after the normal Terraform apply and before commit/push.
-See [per-device overrides](device-overrides.md). Existing actions still target all
-serials in the selected spoke entry, even if override apply used `--device`.
+Run `palo lab overrides plan` and `palo lab overrides apply` after the normal
+Terraform apply and before commit/push. See [per-device overrides](device-overrides.md).
+`--device` only limits helper writes; actions still target the full selected
+policy/template intersection.

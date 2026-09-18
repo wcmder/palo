@@ -10,3 +10,10 @@ output "names" {
 output "device_group_memberships" {
   value = module.device_groups.devices
 }
+
+output "parents" {
+  value = module.parents.parents
+}
+output "parent_name_id" {
+  value = module.parents.name_id
+}

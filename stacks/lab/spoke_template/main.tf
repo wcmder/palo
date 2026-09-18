@@ -1,5 +1,5 @@
 module "templates" {
-  source = "../../../modules/panos/panorama/template"
+  source = "../../modules/panos/panorama/template"
   items = { for key, item in var.items : key => {
     name         = item.name
     description  = item.description
@@ -9,7 +9,7 @@ module "templates" {
 }
 
 module "template_stacks" {
-  source = "../../../modules/panos/panorama/template_stack"
+  source = "../../modules/panos/panorama/template_stack"
   items = { for key, item in var.items : key => {
     name         = item.stack
     description  = item.description
@@ -22,7 +22,7 @@ module "template_stacks" {
 
 module "variables" {
   for_each = var.items
-  source   = "../../../modules/panos/panorama/template_variable"
+  source   = "../../modules/panos/panorama/template_variable"
   items = {
     wan_ip = {
       name        = "$wan_ip"
@@ -47,7 +47,7 @@ module "variables" {
 
 module "interfaces" {
   for_each = var.items
-  source   = "../../../modules/panos/network/ethernet"
+  source   = "../../modules/panos/network/ethernet"
   items = {
     wan = {
       name     = each.value.var.wan_interface
@@ -66,7 +66,7 @@ module "interfaces" {
 
 module "zones" {
   for_each = var.items
-  source   = "../../../modules/panos/network/zone"
+  source   = "../../modules/panos/network/zone"
   items = {
     wan = {
       name     = each.value.var.wan_zone
@@ -83,7 +83,7 @@ module "zones" {
 
 module "routers" {
   for_each = var.items
-  source   = "../../../modules/panos/network/virtual_router"
+  source   = "../../modules/panos/network/virtual_router"
   items = {
     # Keep the existing resource key; the actual router name is an input.
     spoke = {
@@ -96,7 +96,7 @@ module "routers" {
 
 module "routes" {
   for_each = var.items
-  source   = "../../../modules/panos/network/static_route_ipv4"
+  source   = "../../modules/panos/network/static_route_ipv4"
   items = {
     default = {
       name           = "default"

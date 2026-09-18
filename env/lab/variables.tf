@@ -1,12 +1,27 @@
-variable "spokes" {
-  description = "Configuration map passed through to policy/template modules without duplicating their resource schemas."
+variable "device_groups" {
+  description = "Device groups keyed by Panorama name. parent=null means Shared; serials assign firewalls independently of templates. Supports one parent tier and child groups."
   type        = any
   default     = {}
-
   validation {
-    condition = try(alltrue(flatten([for item in values(var.spokes) : [
-      for serial in try(item.serials, []) : trimspace(serial) != "" && serial == trimspace(serial)
-    ]])), false)
-    error_message = "Serials must be non-empty strings without surrounding whitespace."
+    condition = alltrue([for name, group in var.device_groups :
+      try(group.parent, null) == null ? true : try(group.parent != name && var.device_groups[group.parent].parent == null, false)
+    ])
+    error_message = "Each parent must reference a different declared group with parent=null. Use one parent tier plus child groups."
+  }
+}
+
+variable "templates" {
+  description = "Independent network template/stack configurations, each with its own serials and var object."
+  type        = any
+  default     = {}
+  validation {
+    condition     = length(distinct(flatten([for item in values(var.templates) : item.serials]))) == length(flatten([for item in values(var.templates) : item.serials]))
+    error_message = "A firewall can belong to only one template stack."
+  }
+  validation {
+    condition = alltrue(flatten([for item in values(var.templates) : [for serial in item.serials :
+      trimspace(serial) != "" && serial == trimspace(serial)
+    ]]))
+    error_message = "Template serials must be non-empty and have no surrounding whitespace."
   }
 }
