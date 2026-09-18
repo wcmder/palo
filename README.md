@@ -380,8 +380,9 @@ Use `"None"` for unassigned IPs/gateway and `null` for unused prefixes.
 Assign device IP overrides with `palo lab overrides plan` and
 `palo lab overrides apply`; see [per-device overrides](docs/device-overrides.md).
 Common parent policies live in `stacks/lab/policies/common`. Set
-`device_groups.parent.policy_template = "spoke"` to take the LAN/WAN zone names
-and WAN interface from `templates.spoke.var`. The parent pre-rulebases contain:
+`policies.common.parent` in root tfvars with `device_group = "parent"`,
+`lan_zone`, `wan_zone`, and `wan_interface`. These common policy inputs are
+independent of templates; future site-specific policies may use template inputs. The parent pre-rulebases contain:
 
 - Source NAT for any service exiting the WAN zone/interface, using dynamic IP
   and port translation to the interface address.
@@ -505,3 +506,10 @@ because serials select push targets. Network value formats and provider-specific
 attribute combinations are left to Terraform/provider validation. Adding a field
 to the flexible composition inputs does not require a matching validation rule;
 fields consumed by resource expressions must still be supplied.
+
+
+`.all` performs a full Panorama commit with no administrator, device-group,
+template, or stack filters. It includes **all administrators' pending changes**,
+including changes outside this Terraform environment, and does not push to
+firewalls. `.this["group/template"]` remains a scoped partial commit.
+The combined `commit_and_push` action also retains its scoped partial commit.

@@ -65,6 +65,13 @@ palo lab plan -invoke='module.deployment.action.panos_commit.all'
 palo lab apply -invoke='module.deployment.action.panos_commit.all'
 ```
 
+`.all` performs a full Panorama commit with no administrator, device-group,
+template, or stack filters. It includes **all administrators' pending changes**,
+including changes outside this Terraform environment, and does not push to
+firewalls. `.this["group/template"]` remains a scoped partial commit.
+The combined `commit_and_push` action also retains its scoped partial commit.
+
+
 Firewalls must already be managed by Panorama. The actual lab retains PA-A's
 existing group/stack assignment.
 

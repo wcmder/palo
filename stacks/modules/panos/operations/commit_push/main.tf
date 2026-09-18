@@ -38,18 +38,18 @@ action "panos_push_to_devices" "policies" {
   }
 }
 
+# Full Panorama commit: no administrator or container filters.
+# Includes all pending changes, including edits outside this Terraform environment.
 action "panos_commit" "all" {
   config {
-    description     = "Commit configured policy and templates"
-    device_groups   = keys(var.device_groups)
-    templates       = [for item in values(var.templates) : item.name]
-    template_stacks = [for item in values(var.templates) : item.stack]
-    force           = false
+    description = "Full Panorama commit"
+    force       = false
   }
 }
 
 # Explicit operations: normal plan/apply does not commit or push.
 # Apply candidate changes first, invoke commit, wait for success, then invoke push.
+# This is a partial commit limited to the selected target's containers.
 action "panos_commit" "this" {
   for_each = local.deployment_items
 

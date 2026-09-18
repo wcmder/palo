@@ -10,6 +10,18 @@ device_groups = {
   hubs_a     = { parent = "parent_a", serials = ["HUB_A_SERIAL"] }
 }
 
+# Common policy settings are independent of network template settings.
+policies = {
+  common = {
+    parent_a = {
+      device_group  = "parent_a"
+      lan_zone      = "lan"
+      wan_zone      = "wan"
+      wan_interface = "ethernet1/1"
+    }
+  }
+}
+
 # Network assignment is independent of policy: the same spoke stack serves all three families.
 templates = {
   spoke = {

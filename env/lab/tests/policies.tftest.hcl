@@ -22,3 +22,21 @@ run "parent_nat_and_security" {
     error_message = "Each service must be scoped to its own parent group."
   }
 }
+
+run "common_policies_without_templates" {
+  command = apply
+  variables {
+    device_groups = { parent = { serials = [] } }
+    templates     = {}
+    policies = { common = { parent = {
+      device_group  = "parent"
+      lan_zone      = "inside"
+      wan_zone      = "outside"
+      wan_interface = "ethernet1/3"
+    } } }
+  }
+  assert {
+    condition     = jsondecode(base64decode(module.common_policies.name_id.nat.parent)).location.device_group.name == "parent"
+    error_message = "Common policies must be created from explicit inputs without any template configuration."
+  }
+}

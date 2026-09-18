@@ -8,6 +8,9 @@ module "deployment" {
 # Apply candidate configuration and any device overrides before committing.
 # Commit to Panorama before ANY push, unless the changes are already committed:
 # palo lab apply -invoke='module.deployment.action.panos_commit.all'
+# .all performs a FULL Panorama commit of all administrators' pending changes,
+# including changes outside this environment. It does not push to firewalls.
+# .this["group/template"] is a PARTIAL commit scoped to that target's containers.
 # Replace apply with plan in any invocation below to preview it.
 #
 # Template only (var.templates key; requires assigned serials):

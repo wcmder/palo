@@ -1,5 +1,7 @@
 mock_provider "panos" {}
 
+variables { policies = {} }
+
 run "independent_policy_and_template_membership" {
   command = apply
   variables {

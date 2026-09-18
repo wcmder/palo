@@ -30,3 +30,9 @@ variable "templates" {
     error_message = "Template serials must be non-empty and have no surrounding whitespace."
   }
 }
+
+variable "policies" {
+  description = "Policy inputs by policy family. Common policies are independent of template inputs."
+  type        = any
+  default     = {}
+}
