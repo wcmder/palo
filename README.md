@@ -411,6 +411,10 @@ palo lab push-all --dry-run
 palo lab push-all
 ```
 
+`push-all` is a Python CLI command implemented in `src/palo_cli/push_all.py`,
+not a Terraform action or a direct Python call to the Panorama API. It invokes
+Terraform push actions; the PAN-OS provider performs the API calls.
+
 `push-all` evaluates `local.deployment_items` using Terraform console, lists the
 selected targets and serials, and asks for one confirmation. It pushes targets
 sequentially and stops on the first failure. Use `--auto-approve` to skip the
@@ -459,4 +463,3 @@ verify device-side acceptance or perform live commits/pushes.
 
 See [deployment](docs/deployment.md) for the deployment boundary.
 Provider reference: https://registry.terraform.io/providers/PaloAltoNetworks/panos/2.0.13/docs
-

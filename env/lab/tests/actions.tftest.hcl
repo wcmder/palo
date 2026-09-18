@@ -50,6 +50,14 @@ run "independent_policy_and_template_membership" {
     error_message = "Push targets must be policy/template intersections, excluding empty parents."
   }
   assert {
+    condition     = keys(local.policy_push_items) == ["branches_a", "branches_b"] && local.policy_push_items.branches_a.serials == ["A", "H"]
+    error_message = "Policy-only pushes must retain full group membership and exclude unassigned parents."
+  }
+  assert {
+    condition     = keys(local.template_push_items) == ["hub", "shared"] && local.template_push_items.shared.serials == ["A", "B"]
+    error_message = "Template-only pushes must span the stack's assigned devices across policy groups."
+  }
+  assert {
     condition     = module.deployment.push_targets["branches_a/shared"].serials == tolist(["A"]) && module.deployment.push_targets["branches_b/shared"].serials == tolist(["B"])
     error_message = "Sharing a template must not push devices in a different policy group."
   }
@@ -68,6 +76,18 @@ run "independent_policy_and_template_membership" {
   assert {
     condition     = local.deployment_items["branches_a/shared"].device_groups == tolist(["parent_a", "branches_a"])
     error_message = "Scoped commits must include the inherited parent policy."
+  }
+}
+
+run "policy_push_without_templates" {
+  command = plan
+  variables {
+    device_groups = { branch = { serials = ["A"] }, unused = { serials = [] } }
+    templates     = {}
+  }
+  assert {
+    condition     = keys(local.policy_push_items) == ["branch"] && length(local.template_push_items) == 0 && length(local.deployment_items) == 0
+    error_message = "Policy-only pushes must exist without any template or combined deployment target."
   }
 }
 

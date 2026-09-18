@@ -81,12 +81,14 @@ module "zones" {
   }
 }
 
+
 module "routers" {
   for_each = var.items
   source   = "../../modules/panos/network/virtual_router"
   items = {
-    # Keep the existing resource key; the actual router name is an input.
-    spoke = {
+    # Existing routers must be imported before Terraform manages membership.
+    # Changing the name of a router already in state is not an adoption.
+    data = {
       name       = each.value.var.virtual_router
       location   = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
       interfaces = [module.interfaces[each.key].names["wan"], module.interfaces[each.key].names["lan"]]
@@ -101,7 +103,7 @@ module "routes" {
     default = {
       name           = "default"
       location       = { template = { name = module.templates.names[each.key] } }
-      virtual_router = module.routers[each.key].names["spoke"]
+      virtual_router = module.routers[each.key].names["data"]
       destination    = "0.0.0.0/0"
       interface      = module.interfaces[each.key].names["wan"]
       metric         = 10
