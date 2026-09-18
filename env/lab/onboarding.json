@@ -1,0 +1,42 @@
+{
+  "devices": {
+    "pa-b": {
+      "host": "172.16.1.124",
+      "key_name": "palo-6e500c84649844f69613fb3118",
+      "serial": "007954000920860",
+      "stage": "firewall_committed"
+    },
+    "pa-c": {
+      "host": "172.16.1.129",
+      "key_name": "palo-6e500c84649844f69613fb3118",
+      "serial": "007954000920861",
+      "stage": "firewall_committed"
+    }
+  },
+  "jobs": {},
+  "panorama": "172.16.1.99",
+  "panorama_ip": "172.16.1.99",
+  "registration_keys": {
+    "palo-6e500c84649844f69613fb3118": {
+      "auth_key": "2:7Id47lWJSRmg6x0FDxkUvmRbNT-iYkPktibBZdGljFI-YZzTuTSPax1dMOUr61UbX5WNr_gIkyCyZh-uuMHlFA",
+      "count": 100,
+      "expires_at": "2026-09-18T18:12:30.213612+00:00",
+      "key_name": "palo-6e500c84649844f69613fb3118",
+      "serials": [
+        "007954000920860",
+        "007954000920861"
+      ],
+      "stage": "key_saved"
+    },
+    "palo-dde179d3a0e349cb851115f2e2c119e3": {
+      "count": 100,
+      "expires_at": "2026-09-18T18:08:44.828416+00:00",
+      "key_name": "palo-dde179d3a0e349cb851115f2e2c119e3",
+      "serials": [
+        "007954000920860",
+        "007954000920861"
+      ],
+      "stage": "creating_key"
+    }
+  }
+}

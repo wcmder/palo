@@ -17,13 +17,3 @@ __pycache__/
 *.egg-info/
 build/
 dist/
-
-# Device-specific API override inputs (copy the tracked example).
-**/device_overrides.json
-
-# Generated firewall serial inventory.
-**/serial.json
-
-# Device registration secrets and resumable onboarding progress.
-**/onboarding.json
-**/.onboarding-*.tmp
