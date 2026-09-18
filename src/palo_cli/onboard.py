@@ -121,7 +121,7 @@ def preflight(root, child):
 
 
 def extract_key(response):
-    for path in ['./result/authkey', './result/key', './result/entry/key']:
+    for path in ['./result/authkey/entry/key', './result/authkey', './result/key', './result/entry/key']:
         value = response.findtext(path)
         if value and value.strip():
             return value.strip()
@@ -132,12 +132,14 @@ def extract_key(response):
     if found is None:
         found = re.search(r'^\s*Key\s*:\s*(\S+)\s*$', text, re.MULTILINE)
     if found is None:
-        raise APIError('Registration key response was not recognized. The key name was saved; inspect it on Panorama before retrying.')
+        message = 'Registration key response was not recognized. The key name was saved; inspect it on Panorama before retrying.'
+        raise APIError(message, diagnostic=message)
     return found.group(1)
 
 
 def key_valid(entry, options):
-    return (bool(entry.get('expires_at'))
+    return (bool(entry.get('key_name')) and len(entry['key_name']) <= 31
+            and bool(entry.get('expires_at'))
             and datetime.fromisoformat(entry['expires_at']) > datetime.now(timezone.utc)
             and entry.get('count') == options.key_count)
 
@@ -168,7 +170,7 @@ def registration_key(api, devices, journal, path, options, entry=None):
     valid = valid and set(serials).issubset(entry.get('serials', []))
     valid = valid and entry.get('count') == options.key_count
     if not valid:
-        entry = {'serials': serials, 'key_name': 'palo-' + uuid.uuid4().hex,
+        entry = {'serials': serials, 'key_name': 'palo-' + uuid.uuid4().hex[:26],
                  'count': options.key_count,
                  'expires_at': (now + timedelta(minutes=options.lifetime_minutes)).isoformat(),
                  'stage': 'creating_key'}
@@ -182,7 +184,12 @@ def registration_key(api, devices, journal, path, options, entry=None):
         for serial in serials:
             ET.SubElement(allowed, 'member').text = serial
         response = api.request(type='op', cmd=ET.tostring(command, encoding='unicode'))
-        entry['auth_key'] = extract_key(response)
+        try:
+            entry['auth_key'] = extract_key(response)
+        except APIError:
+            # Some versions acknowledge creation without returning the secret.
+            response = api.request(type='op', cmd=xml('request', {'authkey/list': entry['key_name']}))
+            entry['auth_key'] = extract_key(response)
     elif not entry.get('auth_key'):
         response = api.request(type='op', cmd=xml('request', {'authkey/list': entry['key_name']}))
         entry['auth_key'] = extract_key(response)

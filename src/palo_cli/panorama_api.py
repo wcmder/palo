@@ -72,7 +72,14 @@ class PanoramaAPI:
                                    ('temporarily unavailable', 'service temporarily unavailable'),
                                    ('not ready', 'management service not ready'),
                                    ('busy', 'management service busy'),
-                                   ('unauthorized', 'authentication or API access denied')]:
+                                   ('unauthorized', 'authentication or API access denied'),
+                                   ('unexpected here', 'invalid command syntax: an XML element is unexpected here'),
+                                   ('invalid command', 'invalid operational command syntax'),
+                                   ('invalid serial', 'invalid serial number or serial-list format'),
+                                   ('can be at most 31 characters', 'registration-key name exceeds the 31-character limit'),
+                                   ('too long', 'a command parameter exceeds its allowed length'),
+                                   ('failed to update db', 'failed to update the registration-key database'),
+                                   ('does not exist', 'the requested registration key does not exist')]:
                 if phrase in text.lower():
                     return reason
             return 'Check credentials, API permissions and management-service readiness.'

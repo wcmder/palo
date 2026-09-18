@@ -130,6 +130,43 @@ class OnboardTest(unittest.TestCase):
         self.assertFalse(any('<add>' in c.kwargs.get('cmd', '') for c in self.panorama.request.call_args_list))
         self.assertIn('registration_keys', json.loads(path.read_text()))
 
+    def test_overlong_failed_key_record_is_skipped_on_retry(self):
+        from datetime import datetime, timedelta, timezone
+        name = 'palo-' + 'a' * 32
+        journal = {'panorama': '192.0.2.1', 'panorama_ip': '192.0.2.1', 'devices': {}, 'jobs': {},
+                   'registration_keys': {name: {'key_name': name, 'serials': ['001234'], 'count': 100,
+                     'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), 'stage': 'creating_key'}}}
+        (self.root / 'onboarding.json').write_text(json.dumps(journal))
+        self.assertEqual(self.execute(), 0)
+        adds = [ET.fromstring(c.kwargs['cmd']) for c in self.panorama.request.call_args_list if '<add>' in c.kwargs.get('cmd', '')]
+        self.assertEqual(len(adds), 1)
+        self.assertLessEqual(len(adds[0].findtext('authkey/add/name')), 31)
+        self.assertFalse(any('<list>' in c.kwargs.get('cmd', '') for c in self.panorama.request.call_args_list))
+
+    def test_created_key_can_be_recovered_from_nested_list_response(self):
+        # PAN-OS 12.1 returns the secret under result/authkey/entry/key.
+        def request(**args):
+            cmd = ET.fromstring(args['cmd'])
+            if cmd.find('authkey/add') is not None:
+                return response('Successfully added authkey')
+            if cmd.find('authkey/list') is not None:
+                return response('<authkey><entry name="saved"><name>saved</name><count>100</count><devtype>fw</devtype><lifetime>3500</lifetime><key>2:registration-secret</key><serial><member>001234</member></serial></entry></authkey>')
+            return response()
+        self.panorama.request.side_effect = request
+        self.assertEqual(self.execute(), 0)
+        journal = json.loads((self.root / 'onboarding.json').read_text())
+        entry = next(iter(journal['registration_keys'].values()))
+        self.assertEqual(entry['auth_key'], '2:registration-secret')
+        self.assertNotIn('registration-secret', self.output.getvalue())
+        # Emulate the original failed run: key exists remotely, secret missing locally.
+        entry.pop('auth_key')
+        (self.root / 'onboarding.json').write_text(json.dumps(journal))
+        self.panorama.reset_mock()
+        self.assertEqual(self.execute(), 0)
+        commands = [c.kwargs.get('cmd', '') for c in self.panorama.request.call_args_list]
+        self.assertFalse(any('<add>' in cmd for cmd in commands))
+        self.assertEqual(sum('<list>' in cmd for cmd in commands), 1)
+
     def test_plan_no_files_or_writes(self):
         self.options.operation = 'plan'
         self.assertEqual(self.execute(), 0)
