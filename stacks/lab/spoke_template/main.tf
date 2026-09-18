@@ -64,6 +64,15 @@ module "interfaces" {
   }
 }
 
+# Profiles are optional for other template callers; lab tfvars enables WAN and LAN.
+module "zone_protection_profiles" {
+  for_each = var.items
+  source   = "../../modules/panos/network/zone_protection_profile"
+  items = { for key, profile in try(each.value.zone_protection_profiles, {}) : key => merge(profile, {
+    location = { template = { name = module.templates.names[each.key] } }
+  }) }
+}
+
 module "zones" {
   for_each = var.items
   source   = "../../modules/panos/network/zone"
@@ -71,12 +80,18 @@ module "zones" {
     wan = {
       name     = each.value.var.wan_zone
       location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
-      network  = { layer3 = [module.interfaces[each.key].names["wan"]] }
+      network = {
+        layer3                  = [module.interfaces[each.key].names["wan"]]
+        zone_protection_profile = try(module.zone_protection_profiles[each.key].names["wan"], null)
+      }
     }
     lan = {
       name     = each.value.var.lan_zone
       location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
-      network  = { layer3 = [module.interfaces[each.key].names["lan"]] }
+      network = {
+        layer3                  = [module.interfaces[each.key].names["lan"]]
+        zone_protection_profile = try(module.zone_protection_profiles[each.key].names["lan"], null)
+      }
     }
   }
 }
