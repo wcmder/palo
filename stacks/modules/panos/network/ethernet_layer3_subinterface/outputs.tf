@@ -3,21 +3,38 @@
 output "name_id" {
   description = "Resource name to PAN-OS import identifier; not a device UUID."
   value = {
-    for key, resource in panos_ethernet_layer3_subinterface.this : resource.name => base64encode(jsonencode({
-      name   = resource.name
-      parent = resource.parent
-      location = { for scope, config in resource.location : scope => {
+    for key, p in panos_ethernet_layer3_subinterface.this :
+    p.name => base64encode(jsonencode({
+      name   = p.name
+      parent = p.parent
+      location = { for scope, config in p.location : scope => {
         for attribute, value in config : attribute => value if value != null
       } if config != null }
     }))
   }
 }
 output "names" {
-  description = "Stable input key to resource name, for references between modules."
-  value       = { for key, resource in panos_ethernet_layer3_subinterface.this : key => resource.name }
+  description = "Logical role to subinterface name."
+  value = {
+    for key, p in panos_ethernet_layer3_subinterface.this : key => p.name
+  }
 }
 
 output "assignments" {
-  description = "Configured parent, VLAN tag and IP variables keyed by input key."
-  value       = { for key, resource in panos_ethernet_layer3_subinterface.this : key => { parent = resource.parent, tag = resource.tag, ip = resource.ip } }
+  description = "Parent, VLAN tag and IP variables by role."
+  value = {
+    for key, p in panos_ethernet_layer3_subinterface.this : key => {
+      parent = p.parent
+      tag    = p.tag
+      ip     = p.ip
+    }
+  }
+}
+
+output "management_profiles" {
+  description = "Attached interface management profile by role."
+  value = {
+    for key, p in panos_ethernet_layer3_subinterface.this :
+    key => p.interface_management_profile
+  }
 }

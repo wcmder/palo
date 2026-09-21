@@ -48,8 +48,22 @@ locals {
     }
   }
 
+  # Shared interface management settings selected by each template input.
+  interface_management_profiles = {
+    ping_only = {
+      wan  = { name = "wan-ping", ping = true }
+      lan  = { name = "lan-ping", ping = true }
+      mgmt = { name = "mgmt-ping", ping = true }
+    }
+  }
+
   # tfvars files cannot reference locals directly, so resolve the set here.
   templates = { for key, item in var.templates : key => merge(item, {
-    zone_protection_profiles = local.zone_protection_profiles[item.zone_protection_profile_set]
+    zone_protection_profiles = (
+      local.zone_protection_profiles[item.zone_protection_profile_set]
+    )
+    interface_management_profiles = (
+      local.interface_management_profiles[item.interface_management_profile_set]
+    )
   }) }
 }

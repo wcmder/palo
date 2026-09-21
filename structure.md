@@ -27,7 +27,9 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Root modules pass inputs to stacks. Root locals may resolve explicitly
   selected
   shared settings. Shared example settings are configuration, not universal
-  defaults that every deployment must use.
+  defaults that every deployment must use. Interface management and zone
+  protection profiles may use this pattern: define shared sets in root
+  `locals.tf` and select a set explicitly in the template's tfvars input.
 - Address inputs contain the complete provider value: an address with its prefix
   or the literal string `"None"` for an unassigned template variable. Pass the
   value directly; do not append a separate prefix or add fallback conditionals.

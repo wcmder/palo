@@ -7,7 +7,8 @@ variables {
       stack       = "spoke-stack"
       description = "Terraform-managed spoke"
       # Shared settings in locals.tf; select the WAN/LAN protection profiles.
-      zone_protection_profile_set = "standard"
+      zone_protection_profile_set      = "standard"
+      interface_management_profile_set = "ping_only"
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -33,6 +34,17 @@ variables {
 run "dev_zone_protection" {
   command = apply
   assert {
+    condition = (
+      module.spoke_template.names.interface_management_profiles == {
+        wan = "wan-ping", lan = "lan-ping", mgmt = "mgmt-ping"
+      } &&
+      local.templates.spoke.interface_management_profiles.wan.ping &&
+      local.templates.spoke.interface_management_profiles.lan.ping &&
+      local.templates.spoke.interface_management_profiles.mgmt.ping
+    )
+    error_message = "Root inputs must resolve the shared ping-only profile set."
+  }
+  assert {
     condition     = length(module.spoke_template.name_id.zone_protection_profiles) == 2
     error_message = "The spoke template must create both WAN and LAN protection profiles."
   }
@@ -51,6 +63,11 @@ run "zone_profile_attachments" {
       stack       = "test-stack"
       description = "Zone protection attachment test"
       serials     = []
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"

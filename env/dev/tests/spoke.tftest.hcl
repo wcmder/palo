@@ -28,6 +28,11 @@ run "spoke" {
     name        = "test-spoke01-network"
     stack       = "test-spoke01-stack"
     description = "Terraform-managed spoke"
+    interface_management_profiles = {
+      wan  = { name = "wan-ping", ping = true }
+      lan  = { name = "lan-ping", ping = true }
+      mgmt = { name = "mgmt-ping", ping = true }
+    }
     var = {
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"
@@ -45,6 +50,25 @@ run "spoke" {
     }
     serials = ["test-serial-01"]
   } }
+  assert {
+    condition = (
+      length(output.name_id.interface_management_profiles) == 3 &&
+      module.interfaces.management_profiles.wan ==
+      var.item.interface_management_profiles.wan.name &&
+      module.subinterfaces.management_profiles.lan ==
+      var.item.interface_management_profiles.lan.name &&
+      module.subinterfaces.management_profiles.mgmt ==
+      var.item.interface_management_profiles.mgmt.name &&
+      module.interfaces.management_profiles.lan == null &&
+      alltrue([
+        for p in values(module.interface_management_profiles.settings) :
+        p.ping && !p.ssh && !p.https && !p.http && !p.telnet && !p.snmp &&
+        !p.http_ocsp && !p.response_pages && !p.userid_service &&
+        !p.userid_syslog_listener_ssl && !p.userid_syslog_listener_udp
+      ])
+    )
+    error_message = "Only ping must be enabled on each zone's interface."
+  }
   assert {
     condition = (
       output.names.subinterfaces.mgmt == "ethernet1/2.10" &&
@@ -89,6 +113,11 @@ run "alternate_template" {
     name        = "test-spoke02-network"
     stack       = "test-spoke02-stack"
     description = "Terraform-managed spoke"
+    interface_management_profiles = {
+      wan  = { name = "external-ping", ping = true }
+      lan  = { name = "internal-ping", ping = true }
+      mgmt = { name = "admin-ping", ping = true }
+    }
     var = {
       wan_interface         = "ethernet1/3"
       lan_interface         = "ethernet1/4"
@@ -106,6 +135,17 @@ run "alternate_template" {
     }
     serials = ["test-serial-02"]
   } }
+  assert {
+    condition = (
+      module.interfaces.management_profiles.wan == "external-ping" &&
+      module.subinterfaces.management_profiles.lan == "internal-ping" &&
+      module.subinterfaces.management_profiles.mgmt == "admin-ping" &&
+      jsondecode(base64decode(
+        output.name_id.interface_management_profiles["admin-ping"]
+      )).location.template.name == var.item.name
+    )
+    error_message = "Profile names and scope must follow the template input."
+  }
   assert {
     condition = (
       output.names.subinterfaces.mgmt == "ethernet1/4.110" &&
@@ -151,6 +191,11 @@ run "shared_stack_explicit_variables" {
       name        = "shared-network"
       stack       = "shared-stack"
       description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -200,6 +245,11 @@ run "reject_same_interface" {
       serials     = []
       stack       = "bad-stack"
       description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/1"
@@ -233,6 +283,11 @@ run "gateway_validation_deferred_to_provider" {
       serials     = []
       stack       = "bad-stack"
       description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -269,6 +324,11 @@ run "explicit_values_and_extra_fields" {
       serials     = []
       stack       = "example-stack"
       description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"

@@ -4,8 +4,8 @@
     "template_stack": "spoke-stack",
     "var": {
       "wan_ip": "10.0.1.2/24",
-      "lan_ip": "10.1.1.2/24",
-      "mgmt_ip": "10.1.2.2/24",
+      "lan_ip": "10.1.10.2/24",
+      "mgmt_ip": "10.1.20.2/24",
       "default_gateway": "10.0.1.1"
     }
   }

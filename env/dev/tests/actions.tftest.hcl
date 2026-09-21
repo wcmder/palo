@@ -7,7 +7,8 @@ variables {
       stack       = "spoke-stack"
       description = "Terraform-managed spoke"
       # Shared settings in locals.tf; select the WAN/LAN protection profiles.
-      zone_protection_profile_set = "standard"
+      zone_protection_profile_set      = "standard"
+      interface_management_profile_set = "ping_only"
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -47,10 +48,11 @@ run "independent_policy_and_template_membership" {
       branches_b = { parent = "parent_b", serials = ["B"] }
     }
     templates = { spoke = {
-      name        = "test-network"
-      stack       = "test-stack"
-      description = "Test network"
-      serials     = ["A", "B"]
+      name                             = "test-network"
+      stack                            = "test-stack"
+      description                      = "Test network"
+      serials                          = ["A", "B"]
+      interface_management_profile_set = "ping_only"
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -67,10 +69,11 @@ run "independent_policy_and_template_membership" {
         data_virtual_router   = "test-vr"
       }
       }, hub = {
-      name        = "hub-network"
-      stack       = "hub-stack"
-      description = "Test network"
-      serials     = ["H"]
+      name                             = "hub-network"
+      stack                            = "hub-stack"
+      description                      = "Test network"
+      serials                          = ["H"]
+      interface_management_profile_set = "ping_only"
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -158,11 +161,12 @@ run "reject_blank_serial" {
   variables {
     device_groups = { parent = { serials = [] } }
     templates = { spoke = {
-      zone_protection_profile_set = "standard"
-      name                        = "test-network"
-      stack                       = "test-stack"
-      description                 = "Test network"
-      serials                     = [""]
+      zone_protection_profile_set      = "standard"
+      name                             = "test-network"
+      stack                            = "test-stack"
+      description                      = "Test network"
+      serials                          = [""]
+      interface_management_profile_set = "ping_only"
       var = {
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"

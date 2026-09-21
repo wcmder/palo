@@ -518,6 +518,45 @@ layout can reuse the spoke stack through a new explicit root call with complete
 inputs. Update the root template-key validation and action inputs at the same
 time. Implement a separate hub module when its resource structure differs.
 
+## Ping to interface addresses
+
+The template creates one interface management profile for each configured zone
+role. Shared names and settings live in `env/dev/locals.tf`:
+
+
+```hcl
+interface_management_profiles = {
+  ping_only = {
+    wan  = { name = "wan-ping", ping = true }
+    lan  = { name = "lan-ping", ping = true }
+    mgmt = { name = "mgmt-ping", ping = true }
+  }
+}
+```
+
+Select the set alongside `var` in the root template tfvars object:
+
+```hcl
+interface_management_profile_set = "ping_only"
+```
+
+The root resolves this required selector and passes the profiles to the stack.
+Edit the definitions in `locals.tf` to change the shared names or permissions.
+A missing or unknown selector raises an error.
+
+These are example names. The WAN profile attaches to the physical WAN interface;
+the LAN and management profiles attach to their respective subinterfaces.
+Profiles attach to interfaces, not to zone objects. The unnumbered parent of
+the subinterfaces has no management profile.
+
+Only ping is enabled by these inputs. Other management services, including SSH,
+HTTP and HTTPS, default to disabled. To restrict allowed sources, add
+`permitted_ips = [{ name = "192.0.2.0/24" }]` to a profile; omitting this list
+sets no source restriction in that profile. Ping requires an assigned interface
+address and a working return route; an unassigned `"None"` variable provides no
+address to ping. Apply the configuration, then commit and push to the devices.
+See the [interface management profile documentation][interface-mgmt].
+
 ## Per-device overrides: `palo dev overrides`
 
 `palo dev overrides` sets individual firewall values for shared Panorama
@@ -796,3 +835,6 @@ applying.
 
 [reconnaissance]:
   https://docs.paloaltonetworks.com/ngfw/help/12-1/network/network-network-profiles/network-network-profiles-zone-protection/reconnaissance-protection
+
+[interface-mgmt]:
+  https://docs.paloaltonetworks.com/ngfw/networking/configure-interfaces/use-interface-management-profiles-to-restrict-access

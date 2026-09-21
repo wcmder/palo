@@ -4,8 +4,11 @@ templates = {
     name        = "spoke-network"
     stack       = "spoke-stack"
     description = "Terraform-managed spoke"
-    # Shared settings in locals.tf; select the WAN/LAN protection profiles.
-    zone_protection_profile_set = "standard"
+
+    # Shared settings in locals.tf
+    zone_protection_profile_set      = "standard"
+    interface_management_profile_set = "ping_only"
+
     var = {
       data_virtual_router   = "data"
       mgmt_virtual_router   = "mgmt"

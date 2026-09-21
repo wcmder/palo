@@ -21,8 +21,9 @@ variable "items" {
         panorama_device = optional(string)
       }))
     })
-    tag     = number
-    comment = optional(string)
+    interface_management_profile = optional(string)
+    tag                          = number
+    comment                      = optional(string)
     ip = optional(list(object({
       name          = string
       sdwan_gateway = optional(string)
@@ -31,7 +32,9 @@ variable "items" {
   default = {}
 
   validation {
-    condition     = length(distinct([for item in values(var.items) : item.name])) == length(var.items)
+    condition = length(distinct([
+      for item in values(var.items) : item.name
+    ])) == length(var.items)
     error_message = "Subinterface names must be unique within a module call."
   }
 }
