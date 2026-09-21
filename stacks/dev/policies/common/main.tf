@@ -39,9 +39,9 @@ module "security" {
     location = { device_group = { name = var.item.device_group, rulebase = "pre-rulebase" } }
     rules = [
       {
-        name                  = "allow-lan-wan-tcp-22"
-        source_zones          = [var.item.lan_zone]
-        destination_zones     = [var.item.wan_zone]
+        name                  = "allow-tcp-22"
+        source_zones          = [var.item.lan_zone, var.item.wan_zone]
+        destination_zones     = [var.item.lan_zone, var.item.wan_zone]
         source_addresses      = ["any"]
         destination_addresses = ["any"]
         applications          = ["any"]
@@ -50,9 +50,9 @@ module "security" {
         log_end               = true
       },
       {
-        name                  = "allow-lan-wan-icmp"
-        source_zones          = [var.item.lan_zone]
-        destination_zones     = [var.item.wan_zone]
+        name                  = "allow-icmp"
+        source_zones          = ["any"]
+        destination_zones     = ["any"]
         source_addresses      = ["any"]
         destination_addresses = ["any"]
         applications          = ["icmp", "ping"]
@@ -61,9 +61,9 @@ module "security" {
         log_end               = true
       },
       {
-        name                  = "deny-other-lan-wan"
-        source_zones          = [var.item.lan_zone]
-        destination_zones     = [var.item.wan_zone]
+        name                  = "default-deny"
+        source_zones          = ["any"]
+        destination_zones     = ["any"]
         source_addresses      = ["any"]
         destination_addresses = ["any"]
         applications          = ["any"]
