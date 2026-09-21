@@ -1,16 +1,43 @@
 # PAN-OS Terraform workspace
 
+Manage Palo Alto Networks firewalls through Panorama using reusable Terraform
+modules and the `palo` Python CLI. This project provides a development
+environment for building shared policies, configuring firewall networking, and
+deploying changes across multiple devices.
+
+Supported features include:
+
+- Firewall onboarding to Panorama: discover serial numbers, generate shared
+  registration keys per batch, register firewalls, configure their Panorama
+  connection, and commit the changes. Saved progress supports retries, with
+  optional device connection checks.
+- Device groups, parent/child hierarchy, and firewall membership.
+- Templates, template stacks, template variables, and per-device variable
+  overrides through the XML API helper.
+- WAN/LAN interfaces, zones, virtual routers, IPv4 static routes, and zone
+  protection profiles.
+- Address and service objects, groups, tags, Security and NAT policies, and
+  default security rule overrides.
+- Full or scoped Panorama commits, separate policy/template pushes, and a
+  Python command that pushes all configured combined deployment targets.
+- OS keyring authentication and separate environment inputs and state.
+
+The included `dev` configuration implements spoke networking and common parent
+policies. Branch-specific policies, hub-specific policies, and distinct hub
+networking remain scaffolds. Normal Terraform apply writes candidate
+configuration; commits and pushes are explicit operations.
+
 Environment roots call composed stacks, which call reusable feature modules:
 
 ```text
 .
 ├── env/
-│   └── lab/                     Runnable lab root and offline tests
+│   └── dev/                     Runnable dev root and offline tests
 ├── stacks/
-│   ├── lab/
-│   │   ├── device_groups/         Device groups, parent hierarchy and membership
+│   ├── dev/
+│   │   ├── device_groups/       Device groups, parent hierarchy and membership
 │   │   ├── policies/
-│   │   │   ├── common/          Future common policies for parent groups
+│   │   │   ├── common/          Common parent Security, NAT and default rules
 │   │   │   ├── branch/          Future branch policies for child groups
 │   │   │   └── hub/             Future hub policies for child groups
 │   │   ├── spoke_template/      Templates, stacks and WAN/LAN networking
@@ -25,8 +52,9 @@ Environment roots call composed stacks, which call reusable feature modules:
 └── docs/                        Module contract and deployment workflow
 ```
 
-The lab requires Terraform >= 1.14 for commit/push actions and pins PaloAltoNetworks/panos 2.0.13 and includes its
-lock file. Provider configuration lives in the environment root.
+The dev requires Terraform >= 1.14 for commit/push actions and pins
+PaloAltoNetworks/panos 2.0.13 and includes its lock file. Provider configuration
+lives in the environment root.
 
 ## Module contract
 
@@ -50,12 +78,12 @@ module "addresses" {
     lan = {
       name       = "branch-lan"
       ip_netmask = "192.0.2.0/24"
-      location   = { device_group = { name = "lab-branch01" } }
+      location   = { device_group = { name = "dev-branch01" } }
     }
     server = {
       name       = "branch-server"
       ip_netmask = "198.51.100.10/32"
-      location   = { device_group = { name = "lab-branch01" } }
+      location   = { device_group = { name = "dev-branch01" } }
     }
   }
 }
@@ -65,75 +93,82 @@ module "addresses" {
 
 Names must be unique within a feature-module call. Use separate calls for the
 same name in different scopes. Security and NAT modules own entire policies;
-never overlap ownership of the same rulebase across items, calls or states.
-Use ordered lists for rules and template precedence.
+never overlap ownership of the same rulebase across items, calls or states. Use
+ordered lists for rules and template precedence.
 
-## Start the lab
-
-`palo` runs from any directory and selects a Terraform root by environment name:
-
-```sh
-palo lab init
-palo lab plan -out=lab.tfplan
-palo lab apply lab.tfplan
-```
-
-The editable package installation resolves the workspace from its source location. Paths in Terraform arguments (such as a saved plan
-or var file) are relative to `env/lab`, regardless of your shell directory.
+## Start the dev
 
 One-time setup from the workspace root:
 
 ```sh
 python3 -m venv scripts/venv
 scripts/venv/bin/python3 -m pip install -e .
-cp env/lab/device_groups.auto.tfvars.example env/lab/device_groups.auto.tfvars
-cp env/lab/templates.auto.tfvars.example env/lab/templates.auto.tfvars
-cp env/lab/policies.auto.tfvars.example env/lab/policies.auto.tfvars
+cp env/dev/device_groups.auto.tfvars.example env/dev/device_groups.auto.tfvars
+cp env/dev/templates.auto.tfvars.example env/dev/templates.auto.tfvars
+cp env/dev/policies.auto.tfvars.example env/dev/policies.auto.tfvars
 ```
 
-Set `hostname` in `env/lab/palo.json` to your Panorama hostname or IP. The
-`keyring_service` defaults to the existing `panos_api_admin` service. Set
+Before running connected commands,
+[save your Panorama credentials in keyring](#save-and-retrieve-panorama-credentials-with-keyring)
+and set the matching service and username in `env/dev/palo.json`.
+
+`palo` runs from any directory and selects a Terraform root by environment name:
+
+```sh
+palo dev init
+palo dev plan -out=dev.tfplan
+palo dev apply dev.tfplan
+```
+
+The editable package installation resolves the workspace from its source
+location. Paths in Terraform arguments (such as a saved plan or var file) are
+relative to `env/dev`, regardless of your shell directory.
+
+Set `hostname` in `env/dev/palo.json` to your Panorama hostname or IP. Set
+`keyring_service` to `panos_api_admin` (or your existing service label). Set
 `keyring_username` if multiple accounts share that service; otherwise the
 launcher discovers the username from keyring. This JSON file holds only
-connection metadata, never passwords. Set the hostname for the Panorama instance you intend to manage.
+connection metadata, never passwords. Set the hostname for the Panorama instance
+you intend to manage.
 
 `pyproject.toml` declares the `palo = "palo_cli.cli:main"` console entry point
-and its keyring dependency. `pip install -e .` generates `scripts/venv/bin/palo`;
-source edits take effect without reinstalling. Reinstall when package metadata
-or dependencies change.
+and its keyring dependency. `pip install -e .` generates
+`scripts/venv/bin/palo`; source edits take effect without reinstalling.
+Reinstall when package metadata or dependencies change.
 
 No global `palo` symlink is installed. Activate the virtual environment with
 `source scripts/venv/bin/activate` from the workspace root to use `palo` from
 any directory in that shell, or invoke `scripts/venv/bin/palo` by its absolute
-path. For a non-editable
-(wheel) installation, set `PALO_WORKSPACE` to the absolute checkout path. You
-can also use that variable to explicitly select a different checkout.
+path. For a non-editable (wheel) installation, set `PALO_WORKSPACE` to the
+absolute checkout path. You can also use that variable to explicitly select a
+different checkout.
 
 For connected commands, the launcher reads keyring and sets PANOS_HOSTNAME,
 PANOS_USERNAME and PANOS_PASSWORD only for Terraform's process. It replaces
 inherited PANOS_* settings so another environment's API key or target serial
 cannot override the selected environment. Your parent shell is unchanged.
-`init`, `validate`, `fmt`, `test`, `version`, and `providers` skip keyring.
-The current `test` suite uses mock providers; future live tests need their own
+`init`, `validate`, `fmt`, `test`, `version`, and `providers` skip keyring. The
+current `test` suite uses mock providers; future live tests need their own
 explicit authentication setup.
 
-Terraform uses `provider "panos" {}` and no credential data source. Authentication
-credentials from this launcher are not stored as Terraform data-source or
-variable values in state or saved plans. They exist in process memory and its
-environment. Other managed resource secrets may still be stored by Terraform.
-Existing state backups or saved plans from the former external-data-source
-workflow are not cleaned up by this change; don't apply old saved plans.
+Terraform uses `provider "panos" {}` and no credential data source.
+Authentication credentials from this launcher are not stored as Terraform
+data-source or variable values in state or saved plans. They exist in process
+memory and its environment. Other managed resource secrets may still be stored
+by Terraform. Existing state backups or saved plans from the former
+external-data-source workflow are not cleaned up by this change; don't apply old
+saved plans.
 
-## Save Panorama credentials in keyring
+## Save and retrieve Panorama credentials with keyring
 
-After installing the package, activate its virtual environment from the workspace
-root:
+After installing the package, activate its virtual environment from the
+workspace root:
 
 ```sh
 source scripts/venv/bin/activate
 ```
 
-Save your Panorama account using the service name configured for the lab.
+Save your Panorama account using the service name configured for the dev.
 Replace `YOUR_USERNAME` with your actual Panorama administrator username:
 
 ```sh
@@ -145,7 +180,7 @@ that prompt, not as a command-line argument. On macOS, keyring uses the macOS
 Keychain by default. If prompted by macOS, allow the Python process to access
 this credential.
 
-Match the service and account in `env/lab/palo.json`:
+Match the service and account in `env/dev/palo.json`:
 
 ```json
 {
@@ -156,29 +191,58 @@ Match the service and account in `env/lab/palo.json`:
 ```
 
 Replace the example hostname with your Panorama hostname or IP, without
-`https://`. The service is a lookup label; it does not need to match the hostname.
-The service and username must match the values used in the `keyring set`
-command. You can leave `keyring_username` empty to discover the account, but
-specify it when multiple accounts share the same service.
+`https://`. The service is a lookup label; it does not need to match the
+hostname. The service and username must match the values used in the
+`keyring set` command. You can leave `keyring_username` empty to discover the
+account, but specify it when multiple accounts share the same service.
 
 If the credential is already saved under another service, set `keyring_service`
-and `keyring_username` to that existing entry instead of saving another copy.
-To update a saved password, run the same `keyring set` command again.
+and `keyring_username` to that existing entry instead of saving another copy. To
+update a saved password, run the same `keyring set` command again.
 
-With the hostname, credential and lab inputs configured, verify the connection:
+With the hostname, credential and dev inputs configured, verify the connection:
 
 ```sh
-palo lab init
-palo lab plan
+palo dev init
+palo dev plan
 ```
 
-The launcher retrieves the credential without printing it and supplies it to
-the PAN-OS provider through the Terraform process environment. Do not put the
+The launcher retrieves the credential without printing it and supplies it to the
+PAN-OS provider through the Terraform process environment. Do not put the
 password in `palo.json` or Terraform variable files.
+
+When you run `palo dev plan`, credentials are pulled automatically:
+
+1. `palo` reads `env/dev/palo.json` for the Panorama hostname, keyring service,
+   username, and certificate-verification setting.
+2. With a configured username, it calls
+   `keyring.get_password("panos_api_admin", "YOUR_USERNAME")`. If the username
+   is omitted, it calls `keyring.get_credential(service, None)` to retrieve both
+   the account name and password from the backend.
+3. It launches Terraform with `PANOS_HOSTNAME`, `PANOS_USERNAME`,
+   `PANOS_PASSWORD`, and `PANOS_SKIP_VERIFY_CERTIFICATE` in the child process
+   environment. Your shell environment is not changed.
+4. The PAN-OS provider reads those environment variables from the otherwise
+   empty `provider "panos" {}` configuration and authenticates to Panorama.
+
+```text
+keyring set → OS keyring / macOS Keychain
+                         ↓ palo reads the saved entry
+                Terraform process environment
+                         ↓
+                   PAN-OS provider → Panorama
+```
+
+You save the password once and repeat `keyring set` only when it changes. There
+is no need to manually export credentials before each command. This workflow
+does not pass the login credentials through Terraform variables or a data
+source, so it does not add them to Terraform state or saved plans.
+`palo dev init` and `palo dev validate` are offline commands and skip keyring;
+use `palo dev plan` to check connected provider access.
 
 ## Discover firewall serial numbers
 
-Add a `device` map to the environment root's `env/lab/palo.json`. Keys are your
+Add a `device` map to the environment root's `env/dev/palo.json`. Keys are your
 inventory hostnames and values are firewall management IP addresses:
 
 ```json
@@ -192,14 +256,14 @@ Keep the existing Panorama hostname and keyring settings. Replace the example
 IPs with real firewall addresses, then run from any directory:
 
 ```sh
-palo lab serials
+palo dev serials
 ```
 
 This connects directly to each firewall over HTTPS using the existing keyring
 username/password and `skip_verify_certificate` setting. The account must work
 on each firewall and have XML API operational-command access. It reads
 [`show system info`](https://docs.paloaltonetworks.com/ngfw/api/getting-started/explore-xmlapi)
-and saves `env/lab/serial.json` as a hostname-to-serial map:
+and saves `env/dev/serial.json` as a hostname-to-serial map:
 
 ```json
 {
@@ -210,97 +274,98 @@ and saves `env/lab/serial.json` as a hostname-to-serial map:
 
 Serial discovery errors identify the device name/IP, failed API operation, and
 sanitized failure reason. Discovery continues with the remaining devices.
-Serials remain strings, preserving leading zeros. The file is replaced only
-when every device succeeds; failures preserve the previous file and return a
-nonzero exit code. The generated file is ignored by Git. Credentials and API
-keys are never written to it. This command does not change configuration,
-commit/push, or automatically update Terraform inputs.
+Serials remain strings, preserving leading zeros. The file is replaced only when
+every device succeeds; failures preserve the previous file and return a nonzero
+exit code. The generated file is ignored by Git. Credentials and API keys are
+never written to it. This command does not change configuration, commit/push, or
+automatically update Terraform inputs.
 
 ## Onboard firewalls into Panorama
 
-With the `device` map populated in `env/lab/palo.json`, preview and run:
+With the `device` map populated in `env/dev/palo.json`, preview and run:
 
 ```sh
-palo lab onboard plan
-palo lab onboard apply
+palo dev onboard plan
+palo dev onboard apply
 ```
 
-The workflow uses the same keyring administrator credentials on Panorama and
-all listed firewalls. It discovers live serials and automatically splits pending
+The workflow uses the same keyring administrator credentials on Panorama and all
+listed firewalls. It discovers live serials and automatically splits pending
 firewalls into batches of 50. Each batch receives one shared registration key
 restricted to its serials. Keys are generated as batches start and saved once in
-`env/lab/onboarding.json`, adds missing managed-device entries on Panorama,
+`env/dev/onboarding.json`, adds missing managed-device entries on Panorama,
 commits Panorama, installs each firewall's key and Panorama IP, commits each
 firewall, and finishes after the commits succeed. The final connection wait is
-skipped by default; initial preflight still checks for already-connected devices.
-Already-connected devices are skipped. No Security/NAT or template push is run.
-Device-group and template-stack assignment remains in Terraform.
+skipped by default; initial preflight still checks for already-connected
+devices. Already-connected devices are skipped. No Security/NAT or template push
+is run. Device-group and template-stack assignment remains in Terraform.
 
 To also wait for Panorama to report the devices connected:
 
 ```sh
-palo lab onboard apply --connection-check
+palo dev onboard apply --connection-check
 ```
 
 Without this flag, saved progress remains `firewall_committed`, not `connected`.
-`--timeout` always applies to commit jobs and also applies to the final connection
-wait when `--connection-check` is enabled.
+`--timeout` always applies to commit jobs and also applies to the final
+connection wait when `--connection-check` is enabled.
 
 `plan` only reads API data and does not create keys, write files, or commit.
 `apply` asks for confirmation and performs **full candidate commits on Panorama
 and the pending firewalls, including any other pending edits**. It stops on the
-first failure after preflight; completed remote changes are not rolled back.
-Use `--auto-approve` only when you intend to skip that confirmation.
+first failure after preflight; completed remote changes are not rolled back. Use
+`--auto-approve` only when you intend to skip that confirmation.
 
-`serial.json` keeps the hostname-to-serial map. `onboarding.json` contains
-a top-level `registration_keys` map keyed by key name (key, permitted serials,
-expiry and count),
-per-device progress, and pending commit job
-IDs. It is plaintext, written atomically with owner-only permissions (`0600`),
-and ignored by Git; it is not loaded into Terraform state or saved plans.
-Administrator passwords and XML API session keys are never written to it.
-Each batch key defaults to a 60-minute lifetime and **100 total registration uses**.
-The default 50-device batch leaves capacity for retries:
+`serial.json` keeps the hostname-to-serial map. `onboarding.json` contains a
+top-level `registration_keys` map keyed by key name (key, permitted serials,
+expiry and count), per-device progress, and pending commit job IDs. It is
+plaintext, written atomically with owner-only permissions (`0600`), and ignored
+by Git; it is not loaded into Terraform state or saved plans. Administrator
+passwords and XML API session keys are never written to it. Each batch key
+defaults to a 60-minute lifetime and **100 total registration uses**. The
+default 50-device batch leaves capacity for retries:
 
 ```sh
-palo lab onboard apply --batch-size 50 --lifetime-minutes 120 --key-count 100 --timeout 600
+palo dev onboard apply --batch-size 50 --lifetime-minutes 120 --key-count 100 --timeout 600
 ```
 
-Keep every firewall in one `device` map; 1,000 pending devices automatically form
-20 batches at the default size. Batches run sequentially: generate/recover the
-batch key, register its serials, commit Panorama, then configure and commit its
-firewalls. A failure stops later batches. Choose a key lifetime long enough for
-a batch's commits and initial connections.
+Keep every firewall in one `device` map; 1,000 pending devices automatically
+form 20 batches at the default size. Batches run sequentially: generate/recover
+the batch key, register its serials, commit Panorama, then configure and commit
+its firewalls. A failure stops later batches. Choose a key lifetime long enough
+for a batch's commits and initial connections.
 
-Retries retain valid saved key groups, even when only some devices remain pending.
-Already-connected firewalls are skipped. New serials form new batches; expired
-keys or a changed `--key-count` cause replacement keys to be generated.
-`--batch-size` accepts 1–100 and is capped by `--key-count` (also 1–100).
-The former single `registration_key` record is migrated and reused when valid.
+Retries retain valid saved key groups, even when only some devices remain
+pending. Already-connected firewalls are skipped. New serials form new batches;
+expired keys or a changed `--key-count` cause replacement keys to be generated.
+`--batch-size` accepts 1–100 and is capped by `--key-count` (also 1–100). The
+former single `registration_key` record is migrated and reused when valid.
 Legacy per-device secrets are removed locally once a batch key is saved; old
-Panorama keys are not revoked and expire independently.
-After interruptions, recorded commit jobs are checked before further writes.
-If a saved key is exhausted or revoked, or a recorded commit failed, inspect
-Panorama and the saved progress before retrying; the command does not reset
-secure communications or silently migrate firewalls from another Panorama.
+Panorama keys are not revoked and expire independently. After interruptions,
+recorded commit jobs are checked before further writes. If a saved key is
+exhausted or revoked, or a recorded commit failed, inspect Panorama and the
+saved progress before retrying; the command does not reset secure communications
+or silently migrate firewalls from another Panorama.
 
 Onboarding API errors identify the firewall name/IP and failed operation, with
 HTTP status or PAN-OS error code and sanitized details. Timeouts, refused/reset
 connections, DNS errors, TLS failures and invalid XML have distinct diagnostics.
 After restarting a firewall's management server, a timeout or HTTP 503 can mean
-its API is not ready yet; retry `palo lab onboard plan` after it recovers.
+its API is not ready yet; retry `palo dev onboard plan` after it recovers.
 Preflight failures make no onboarding configuration changes or commits.
 Passwords, API keys, registration keys and raw response bodies are not printed.
 
 The Panorama IP defaults to `hostname` in `palo.json`. If that is a DNS name or
-API endpoint with a port, add `"panorama_ip": "172.16.1.99"` with the address the
-firewalls should use to reach Panorama. Direct HTTPS API access to all devices
-and firewall-to-Panorama management connectivity must be available. The helper
-currently handles one Panorama server, not HA migration.
+API endpoint with a port, add `"panorama_ip": "172.16.1.99"` with the address
+the firewalls should use to reach Panorama. Direct HTTPS API access to all
+devices and firewall-to-Panorama management connectivity must be available. The
+helper currently handles one Panorama server, not HA migration.
 
-References: [Palo Alto onboarding workflow](https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/add-a-firewall-as-a-managed-device),
+References:
+[Palo Alto onboarding workflow](https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/add-a-firewall-as-a-managed-device),
 [registration key commands](https://docs.paloaltonetworks.com/panorama/administration/troubleshooting/recover-managed-device-connectivity-to-panorama),
-and [XML API commits and job status](https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/commit).
+and
+[XML API commits and job status](https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/commit).
 
 ## Self-signed Panorama certificates
 
@@ -311,23 +376,23 @@ Set this optional boolean in the environment's `palo.json`:
 ```
 
 The launcher passes it as `PANOS_SKIP_VERIFY_CERTIFICATE` to the PAN-OS
-provider. It is enabled for `env/lab/palo.json`. Other environments verify
-certificates by default when this field is omitted or set to `false`.
-Use a JSON boolean, not the string `"true"`.
+provider. It is enabled for `env/dev/palo.json`. Other environments verify
+certificates by default when this field is omitted or set to `false`. Use a JSON
+boolean, not the string `"true"`.
 
 HTTPS remains enabled, but `true` disables certificate verification, including
-server identity checks. Set it to `false` when Panorama has a trusted certificate.
-This setting applies when running through `palo`; direct Terraform invocations
-do not read `palo.json`.
+server identity checks. Set it to `false` when Panorama has a trusted
+certificate. This setting applies when running through `palo`; direct Terraform
+invocations do not read `palo.json`.
 
 ## Add another environment
 
-Create `env/lab2` with its own root `.tf` files and a `palo.json`, for example:
+Create `env/dev2` with its own root `.tf` files and a `palo.json`, for example:
 
 ```json
 {
-  "hostname": "panorama-lab2.example.com",
-  "keyring_service": "panos_lab2",
+  "hostname": "panorama-dev2.example.com",
+  "keyring_service": "panos_dev2",
   "keyring_username": "terraform-admin"
 }
 ```
@@ -335,21 +400,21 @@ Create `env/lab2` with its own root `.tf` files and a `palo.json`, for example:
 With the virtual environment activated, save the separate account:
 
 ```sh
-python -m keyring set panos_lab2 terraform-admin
+python -m keyring set panos_dev2 terraform-admin
 ```
 
-Then run `palo lab2 init` and `palo lab2 plan` from anywhere in that shell.
+Then run `palo dev2 init` and `palo dev2 plan` from anywhere in that shell.
 Reuse the shared modules. Give each root its own state/backend key. Copy only
-source configuration when creating a new environment, never `.terraform`,
-state, or saved plans. No launcher changes are required.
+source configuration when creating a new environment, never `.terraform`, state,
+or saved plans. No launcher changes are required.
 
 ## Independent policy and network inputs
 
 `device_groups` defines device groups by name, their `parent`, and firewall
 `serials`. `templates` defines network templates/stacks and their independent
-`serials`. A firewall belongs directly to one device group and one template stack.
-A parent provides inherited policy to its children; do not repeat child serials
-on the parent.
+`serials`. A firewall belongs directly to one device group and one template
+stack. A parent provides inherited policy to its children; do not repeat child
+serials on the parent.
 
 ```hcl
 device_groups = {
@@ -376,27 +441,29 @@ Environment inputs are split into automatically loaded files:
 | `templates.auto.tfvars` | `templates` |
 | `policies.auto.tfvars` | `policies` |
 
-Each has a tracked `.example` file in `env/lab`; actual values remain gitignored.
-The examples cover three parent groups sharing a spoke network and a separate
-hub network. Existing lab values are preserved in the corresponding input files.
-Terraform automatically loads these files from the selected environment root,
-so `palo lab plan`, `apply`, and `push-all` need no extra flags. Keep each root
-variable in one file: repeated map definitions replace rather than merge values.
-Do not also define these variables in a leftover `terraform.tfvars`.
+Each has a tracked `.example` file in `env/dev`; actual values remain
+gitignored. The examples cover three parent groups sharing a spoke network and a
+separate hub network. Existing dev values are preserved in the corresponding
+input files. Terraform automatically loads these files from the selected
+environment root, so `palo dev plan`, `apply`, and `push-all` need no extra
+flags. Keep each root variable in one file: repeated map definitions replace
+rather than merge values. Do not also define these variables in a leftover
+`terraform.tfvars`.
 
 
 Composition variables use `type = any`; resource modules retain typed inputs.
-The template module still explicitly defines WAN/LAN interfaces, zones, variables,
-a router and default route. Set all network values in `templates.<key>.var`.
-To add a DMZ, add its values there and explicit resource entries in spoke_template/main.tf;
-there is no need to duplicate the input schema across parent modules.
-Use `"None"` for unassigned IPs/gateway and `null` for unused prefixes.
-Assign device IP overrides with `palo lab overrides plan` and
-`palo lab overrides apply`; see [per-device overrides](docs/device-overrides.md).
-Common parent policies live in `stacks/lab/policies/common`. Set
-`policies.common.parent` in root tfvars with `device_group = "parent"`,
-`lan_zone`, `wan_zone`, and `wan_interface`. These common policy inputs are
-independent of templates; future site-specific policies may use template inputs. The parent pre-rulebases contain:
+The template module still explicitly defines WAN/LAN interfaces, zones,
+variables, a router and default route. Set all network values in
+`templates.<key>.var`. To add a DMZ, add its values there and explicit resource
+entries in spoke_template/main.tf; there is no need to duplicate the input
+schema across parent modules. Use `"None"` for unassigned IPs/gateway and `null`
+for unused prefixes. Assign device IP overrides with `palo dev overrides plan`
+and `palo dev overrides apply`; see
+[per-device overrides](docs/device-overrides.md). Common parent policies live in
+`stacks/dev/policies/common`. Set `policies.common.parent` in root tfvars with
+`device_group = "parent"`, `lan_zone`, `wan_zone`, and `wan_interface`. These
+common policy inputs are independent of templates; future site-specific policies
+may use template inputs. The parent pre-rulebases contain:
 
 - Source NAT for any service exiting the WAN zone/interface, using dynamic IP
   and port translation to the interface address.
@@ -405,36 +472,36 @@ independent of templates; future site-specific policies may use template inputs.
 
 NAT does not match virtual-router names; routing chooses the outgoing interface.
 The rules are inherited by child device groups, including `spoke`. To deploy,
-apply candidate changes, commit with `module.deployment.action.panos_commit.all`,
-then push the child using
-`module.deployment.action.panos_push_to_devices.policies["spoke"]`.
-The `branch` and `hub` policy folders remain scaffolds. One module instance must
-own each device-group/policy-type/rulebase scope; combine its ordered rules there.
+apply candidate changes, commit with
+`module.deployment.action.panos_commit.all`, then push the child using
+`module.deployment.action.panos_push_to_devices.policies["spoke"]`. The `branch`
+and `hub` policy folders remain scaffolds. One module instance must own each
+device-group/policy-type/rulebase scope; combine its ordered rules there.
 
 
 `hub_template` is also a scaffold. Hub devices with the same WAN/LAN resource
-layout can already use another `templates` entry. Implement a separate hub module
-only when its resource structure differs.
+layout can already use another `templates` entry. Implement a separate hub
+module only when its resource structure differs.
 
 ## Commit to Panorama and push to firewalls
 
 ```sh
-palo lab init
-palo lab plan
-palo lab apply
-palo lab overrides plan
-palo lab overrides apply
+palo dev init
+palo dev plan
+palo dev apply
+palo dev overrides plan
+palo dev overrides apply
 # Commit all configured policy groups, templates and stacks:
-palo lab apply -invoke='module.deployment.action.panos_commit.all'
+palo dev apply -invoke='module.deployment.action.panos_commit.all'
 # Push only the intersection of group "spoke" and template entry "spoke":
-palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
 ```
 
 To push every configured target after the commit succeeds:
 
 ```sh
-palo lab push-all --dry-run
-palo lab push-all
+palo dev push-all --dry-run
+palo dev push-all
 ```
 
 All environments share the actions and target selection in
@@ -452,8 +519,8 @@ module "deployment" {
 After committing, push only templates or only policies with:
 
 ```sh
-palo lab apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
-palo lab apply -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'
 ```
 
 Use `plan` instead of `apply` to preview. These keys identify a template input
@@ -464,32 +531,33 @@ All action addresses use the `module.deployment` prefix, including commit-all.
 not a Terraform action or a direct Python call to the Panorama API. It invokes
 Terraform push actions; the PAN-OS provider performs the API calls.
 
-`push-all` evaluates `module.deployment.deployment_items` using Terraform console, lists the
-selected targets and serials, and asks for one confirmation. It pushes targets
-sequentially and stops on the first failure. Use `--auto-approve` to skip the
-batch prompt. It does not apply resource changes, write variable overrides, or
-commit Panorama. Earlier successful pushes are not rolled back on failure.
-“All” means this environment's configured group/template intersections, not all
-firewalls in Panorama. Complete your configuration apply and commit first.
-The command uses default environment variable files; additional Terraform flags
-are not accepted, and inherited `TF_CLI_ARGS*` options are ignored.
+`push-all` evaluates `module.deployment.deployment_items` using Terraform
+console, lists the selected targets and serials, and asks for one confirmation.
+It pushes targets sequentially and stops on the first failure. Use
+`--auto-approve` to skip the batch prompt. It does not apply resource changes,
+write variable overrides, or commit Panorama. Earlier successful pushes are not
+rolled back on failure. “All” means this environment's configured group/template
+intersections, not all firewalls in Panorama. Complete your configuration apply
+and commit first. The command uses default environment variable files;
+additional Terraform flags are not accepted, and inherited `TF_CLI_ARGS*`
+options are ignored.
 
 For a scoped commit, or a combined commit and push:
 
 ```sh
-palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
-Scoped commits include the target's parent group, child group, template and stack.
-Action keys are `<device-group>/<template-key>`. Only non-empty serial
+Scoped commits include the target's parent group, child group, template and
+stack. Action keys are `<device-group>/<template-key>`. Only non-empty serial
 intersections create deployment targets. Unassigned groups/templates can still
-be committed using `module.deployment.action.panos_commit.all`. Shared policy commits can include
-changes affecting other children; push each affected target deliberately.
-Normal apply does not invoke commit/push actions.
+be committed using `module.deployment.action.panos_commit.all`. Shared policy
+commits can include changes affecting other children; push each affected target
+deliberately. Normal apply does not invoke commit/push actions.
 
 The root `moved.tf` migrates existing policy/template resource addresses. Run
-`palo lab plan` and review the moves before applying; do not apply an old saved
+`palo dev plan` and review the moves before applying; do not apply an old saved
 plan. No state migration occurs until you apply. Root outputs remain commented
 out; modules expose `name_id` maps.
 
@@ -498,72 +566,79 @@ out; modules expose `name_id` maps.
 ```sh
 scripts/venv/bin/python3 -m unittest discover -s scripts -p "test_*.py"
 terraform fmt -check -recursive
-terraform -chdir=env/lab init -backend=false
-terraform -chdir=env/lab validate
-terraform -chdir=env/lab test
+terraform -chdir=env/dev init -backend=false
+terraform -chdir=env/dev validate
+terraform -chdir=env/dev test
 ```
 
 Mock-provider tests exercise two instances of every feature module, decoded
-identifier names, policy order, multi-spoke
-variable/addressing configuration. They also verify explicit values and pass-through fields, reject duplicate
-interface ownership, and allow gateway values without custom subnet restrictions. Action tests verify that only assigned spokes are
-eligible for push and that blank serials are rejected. They do not
-verify device-side acceptance or perform live commits/pushes.
+identifier names, policy order, multi-spoke variable/addressing configuration.
+They also verify explicit values and pass-through fields, reject duplicate
+interface ownership, and allow gateway values without custom subnet
+restrictions. Action tests verify that only assigned spokes are eligible for
+push and that blank serials are rejected. They do not verify device-side
+acceptance or perform live commits/pushes.
 
-See [deployment](docs/deployment.md) for the deployment boundary.
-Provider reference: https://registry.terraform.io/providers/PaloAltoNetworks/panos/2.0.13/docs
+See [deployment](docs/deployment.md) for the deployment boundary. Provider
+reference:
+https://registry.terraform.io/providers/PaloAltoNetworks/panos/2.0.13/docs
 
 Input validation is limited to repository relationships and ownership: group
 hierarchy, unique template/stack ownership, distinct managed interfaces, unique
-resource/rule identities and unambiguous locations. Non-empty serial checks remain
-because serials select push targets. Network value formats and provider-specific
-attribute combinations are left to Terraform/provider validation. Adding a field
-to the flexible composition inputs does not require a matching validation rule;
-fields consumed by resource expressions must still be supplied.
+resource/rule identities and unambiguous locations. Non-empty serial checks
+remain because serials select push targets. Network value formats and
+provider-specific attribute combinations are left to Terraform/provider
+validation. Adding a field to the flexible composition inputs does not require a
+matching validation rule; fields consumed by resource expressions must still be
+supplied.
 
 
 `.all` performs a full Panorama commit with no administrator, device-group,
 template, or stack filters. It includes **all administrators' pending changes**,
 including changes outside this Terraform environment, and does not push to
-firewalls. `.this["group/template"]` remains a scoped partial commit.
-The combined `commit_and_push` action also retains its scoped partial commit.
+firewalls. `.this["group/template"]` remains a scoped partial commit. The
+combined `commit_and_push` action also retains its scoped partial commit.
 
-Shared zone protection settings live in `env/lab/locals.tf`. Select them with
+Shared zone protection settings live in `env/dev/locals.tf`. Select them with
 `zone_protection_profile_set = "standard"` in a template entry in
-`templates.auto.tfvars`. The root resolves that name and passes `local.templates`
-to the template module; tfvars cannot reference locals directly. The `wan` and `lan` entries create separate profiles and attach them
-to their respective zones through `network.zone_protection_profile`. The reusable
-`network/zone_protection_profile` module supports multiple profiles and returns
-`name_id` and `names` maps. Templates that omit the set selector create no profiles.
-Profile names are explicit in the shared WAN/LAN definitions in `locals.tf`:
-`spoke-wan-protection` and `spoke-lan-protection`. Each selected template creates
-its own profiles with those names in its template scope.
+`templates.auto.tfvars`. The root resolves that name and passes
+`local.templates` to the template module; tfvars cannot reference locals
+directly. The `wan` and `lan` entries create separate profiles and attach them
+to their respective zones through `network.zone_protection_profile`. The
+reusable `network/zone_protection_profile` module supports multiple profiles and
+returns `name_id` and `names` maps. Templates that omit the set selector create
+no profiles. Profile names are explicit in the shared WAN/LAN definitions in
+`locals.tf`: `spoke-wan-protection` and `spoke-lan-protection`. Each selected
+template creates its own profiles with those names in its template scope.
 
-The lab enables SYN cookies, UDP/ICMP/ICMPv6/other-IP flood protection, TCP/UDP
+The dev enables SYN cookies, UDP/ICMP/ICMPv6/other-IP flood protection, TCP/UDP
 scan and host-sweep blocking, and malformed/source-routing/TCP packet checks.
 Spoofed-IP checks are enabled on LAN only; its ingress source routes must point
 back to LAN. ICMP errors and fragmentation-needed replies remain available.
-Authorized vulnerability scanners can be added to `scan_white_list` in the shared locals.
+Authorized vulnerability scanners can be added to `scan_white_list` in the
+shared locals.
 
-Flood rates are **lab starting points, not vendor-recommended universal values**:
-TCP SYN/UDP/other IP use alarm/activate/maximum rates of 1000/2000/4000 new
-connections per second; ICMP/ICMPv6 use 100/200/400. Baseline normal and peak
-traffic and firewall capacity before applying to a busier environment. SYN
-cookies also consume CPU. Reconnaissance uses 100 events in 2 seconds for port
-scans and 10 seconds for host sweeps. These controls act on ingress traffic.
-See Palo Alto's [zone protection guidance](https://docs.paloaltonetworks.com/ngfw/administration/zone-protection-and-dos-protection/zone-defense/zone-protection-profiles)
-and [reconnaissance settings](https://docs.paloaltonetworks.com/ngfw/help/12-1/network/network-network-profiles/network-network-profiles-zone-protection/reconnaissance-protection).
+Flood rates are **dev starting points, not vendor-recommended universal
+values**: TCP SYN/UDP/other IP use alarm/activate/maximum rates of
+1000/2000/4000 new connections per second; ICMP/ICMPv6 use 100/200/400. Baseline
+normal and peak traffic and firewall capacity before applying to a busier
+environment. SYN cookies also consume CPU. Reconnaissance uses 100 events in 2
+seconds for port scans and 10 seconds for host sweeps. These controls act on
+ingress traffic. See Palo Alto's
+[zone protection guidance](https://docs.paloaltonetworks.com/ngfw/administration/zone-protection-and-dos-protection/zone-defense/zone-protection-profiles)
+and
+[reconnaissance settings](https://docs.paloaltonetworks.com/ngfw/help/12-1/network/network-network-profiles/network-network-profiles-zone-protection/reconnaissance-protection).
 
 Deploy with a normal plan/apply, then commit Panorama and push the template:
 
 ```sh
-palo lab plan
-palo lab apply
-palo lab apply -invoke='module.deployment.action.panos_commit.all'
-palo lab apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
+palo dev plan
+palo dev apply
+palo dev apply -invoke='module.deployment.action.panos_commit.all'
+palo dev apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
 ```
 
-Common policies also accept `default_security_rules` in root tfvars. The lab
+Common policies also accept `default_security_rules` in root tfvars. The dev
 sets `intrazone-default` to `deny` with session-end logging at the parent group.
 Child firewalls inherit it unless a lower-level default-rule override takes
 precedence. This blocks same-zone traffic only when no earlier security rule

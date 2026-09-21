@@ -5,8 +5,8 @@ The shared template keeps `$wan_ip`, `$lan_ip`, and `$default_gateway` set to
 and device assignments. The `palo` XML API helper manages the individual
 firewall values that appear in **Panorama > Managed Devices > Summary > Variables**.
 
-Create `env/lab/device_overrides.json` using
-[`device_overrides.json.example`](../env/lab/device_overrides.json.example):
+Create `env/dev/device_overrides.json` using
+[`device_overrides.json.example`](../env/dev/device_overrides.json.example):
 
 ```json
 {
@@ -36,7 +36,7 @@ to `spoke-stack` by the Terraform `templates.spoke.serials` list. The shared con
 `templates.spoke.name`, and `templates.spoke.stack`. Template defaults
 are under `templates.spoke.var`; this JSON file still holds per-device values.
 One shared Terraform spoke entry can serve many devices; do not duplicate the template
-and stack for each firewall. The lab's local JSON file was populated from
+and stack for each firewall. The dev's local JSON file was populated from
 PA-A's existing GUI overrides; it is ignored by Git.
 
 ## Commands
@@ -45,17 +45,17 @@ From any directory with the workspace CLI activated:
 
 ```bash
 # Create/update shared configuration and serial assignments first.
-palo lab plan
-palo lab apply
+palo dev plan
+palo dev apply
 
 # Read candidate overrides and preview differences. No configuration writes.
-palo lab overrides plan
+palo dev overrides plan
 
 # Apply and read back changed candidate overrides. No commit or push.
-palo lab overrides apply
+palo dev overrides apply
 
 # Commit and push using the existing Terraform action.
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 `overrides` is a Python command in `palo`, not a Terraform command or resource.
@@ -68,14 +68,14 @@ stack configuration. The helper's comparison is against **candidate** values;
 To update one device or use another input file:
 
 ```bash
-palo lab overrides plan --device paa
-palo lab overrides apply --device paa
-palo lab overrides plan --file device_overrides.staging.json
+palo dev overrides plan --device paa
+palo dev overrides apply --device paa
+palo dev overrides plan --file device_overrides.staging.json
 ```
 
-Relative file paths resolve under `env/lab`, regardless of the shell's current
+Relative file paths resolve under `env/dev`, regardless of the shell's current
 directory. Absolute paths are also accepted. Each future environment, such as
-`lab2`, gets its own `palo.json` and override file.
+`dev2`, gets its own `palo.json` and override file.
 
 `--device paa` limits **override writes only**. The existing `spoke` commit/push
 action still targets every serial in that Terraform entry. Use Panorama's
@@ -106,7 +106,7 @@ there is no automatic retry, commit, push, or rollback.
 
 ## API and authentication
 
-The path was verified against the GUI-created PA-A overrides on the lab Panorama:
+The path was verified against the GUI-created PA-A overrides on the dev Panorama:
 
 ```text
 /config/devices/entry[@name='localhost.localdomain']/template-stack/entry[@name='spoke-stack']/devices/entry[@name='SERIAL']/variable/entry[@name='$wan_ip']

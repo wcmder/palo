@@ -19,7 +19,7 @@ run "multiple_variables_and_routes" {
 
 run "two_spokes" {
   command = apply
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = {
       spoke01 = {
@@ -80,7 +80,7 @@ run "two_spokes" {
 
 run "shared_stack_unassigned_variables" {
   command = apply
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = {
       shared = {
@@ -119,7 +119,7 @@ run "shared_stack_unassigned_variables" {
 
 run "reject_same_interface" {
   command = plan
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = {
       bad = {
@@ -147,7 +147,7 @@ run "reject_same_interface" {
 
 run "gateway_validation_deferred_to_provider" {
   command = plan
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = {
       bad = {
@@ -178,7 +178,7 @@ run "gateway_validation_deferred_to_provider" {
 
 run "explicit_values_and_extra_fields" {
   command = plan
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = {
       example = {

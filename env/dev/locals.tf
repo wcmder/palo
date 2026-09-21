@@ -1,5 +1,5 @@
 locals {
-  # Shared lab starting points, NOT measured production thresholds. Rates are new CPS.
+  # Shared dev starting points, NOT measured production thresholds. Rates are new CPS.
   # Tune to normal/peak traffic and firewall capacity before deployment.
   zone_protection_common = {
     discard_unknown_option                   = true
@@ -37,12 +37,12 @@ locals {
     standard = {
       wan = merge(local.zone_protection_common, {
         name             = "wan-protection"
-        description      = "Lab WAN ingress protection; tune flood thresholds to traffic baseline"
+        description      = "Dev WAN ingress protection; tune flood thresholds to traffic baseline"
         discard_ip_spoof = false
       })
       lan = merge(local.zone_protection_common, {
         name             = "lan-protection"
-        description      = "Lab LAN ingress protection; tune flood thresholds to traffic baseline"
+        description      = "Dev LAN ingress protection; tune flood thresholds to traffic baseline"
         discard_ip_spoof = true
       })
     }

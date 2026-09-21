@@ -235,7 +235,7 @@ class OnboardTest(unittest.TestCase):
 
     def test_help_skips_keyring(self):
         from palo_cli import cli
-        with patch.object(cli.sys, 'argv', ['palo', 'lab', 'onboard', '--help']), patch.object(cli, 'workspace_root', return_value=self.root), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(cli.sys, 'argv', ['palo', 'dev', 'onboard', '--help']), patch.object(cli, 'workspace_root', return_value=self.root), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(SystemExit):
                 cli.main()
             prepare.assert_not_called()

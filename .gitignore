@@ -4,6 +4,7 @@
 *.tfplan
 *.tfvars.json
 !*.tfvars.example
+*.lock.hcl
 crash.log
 crash.*.log
 .env

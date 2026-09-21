@@ -1,12 +1,12 @@
 # Deployment workflow
 
-The lab requires Terraform >= 1.14 and PAN-OS provider 2.0.13. Actions are
+The dev requires Terraform >= 1.14 and PAN-OS provider 2.0.13. Actions are
 defined in `stacks/modules/panos/operations/commit_push` and called from
-`env/lab/actions.tf` as `module.deployment`: one scoped commit/push target per non-empty device-group/template serial intersection. They use the same keyring-based
+`env/dev/actions.tf` as `module.deployment`: one scoped commit/push target per non-empty device-group/template serial intersection. They use the same keyring-based
 provider connection as the configuration resources.
 
 1. Store Panorama credentials in keyring and set hostname/keyring selectors in
-   `env/lab/palo.json`. See README for setup.
+   `env/dev/palo.json`. See README for setup.
 2. Edit environment inputs and review device-group/template ownership. For
    existing configuration, import the resources before applying and reconcile
    the plan. Use provider import identifiers, not device UUIDs.
@@ -19,24 +19,24 @@ provider connection as the configuration resources.
 4. Run offline checks, review the candidate-configuration plan, then apply it:
 
    ```sh
-   palo lab validate
-   palo lab test
-   palo lab plan -out=lab.tfplan
-   palo lab apply lab.tfplan
+   palo dev validate
+   palo dev test
+   palo dev plan -out=dev.tfplan
+   palo dev apply dev.tfplan
    ```
 
 5. Review candidate changes and commit the selected spoke to Panorama:
 
    ```sh
-   palo lab plan -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
-   palo lab apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+   palo dev plan -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+   palo dev apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
    ```
 
 6. After the commit succeeds, push to the spoke's assigned firewalls:
 
    ```sh
-   palo lab plan -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
-   palo lab apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+   palo dev plan -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+   palo dev apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
    ```
 
 Replace `spoke/spoke` with `<device-group>/<template-key>` for another target. Keep the quoted
@@ -45,7 +45,7 @@ Each apply retains Terraform's interactive confirmation.
 
 ## Commit and push behavior
 
-Normal `palo lab apply` manages configuration, including move-device-group jobs for hierarchy changes, but does not invoke commit/push actions. There are no
+Normal `palo dev apply` manages configuration, including move-device-group jobs for hierarchy changes, but does not invoke commit/push actions. There are no
 resource lifecycle action triggers. `-invoke` targets an operation rather than
 performing a normal configuration apply; it does not apply pending interface,
 variable or membership edits first. Complete step 4 before invoking actions.
@@ -61,8 +61,8 @@ entry. It includes template configuration and leaves `force_template_values = fa
 Unassigned groups/templates have no scoped target; commit them using:
 
 ```sh
-palo lab plan -invoke='module.deployment.action.panos_commit.all'
-palo lab apply -invoke='module.deployment.action.panos_commit.all'
+palo dev plan -invoke='module.deployment.action.panos_commit.all'
+palo dev apply -invoke='module.deployment.action.panos_commit.all'
 ```
 
 `.all` performs a full Panorama commit with no administrator, device-group,
@@ -72,7 +72,7 @@ firewalls. `.this["group/template"]` remains a scoped partial commit.
 The combined `commit_and_push` action also retains its scoped partial commit.
 
 
-Firewalls must already be managed by Panorama. The actual lab retains PA-A's
+Firewalls must already be managed by Panorama. The actual dev retains PA-A's
 existing group/stack assignment.
 
 Mocked tests verify configuration and target selection. No live commit or push
@@ -82,7 +82,7 @@ apply; resolve the reported issue and retry the required operation.
 
 One environment root owns its state. Shared objects and policy rulebases must
 have exactly one owner. Before shared production use, configure a remote
-backend with locking/access controls and verify the full workflow in the lab.
+backend with locking/access controls and verify the full workflow in the dev.
 
 References:
 - [Commit action](https://github.com/PaloAltoNetworks/terraform-provider-panos/blob/v2.0.13/docs/actions/commit.md)
@@ -95,8 +95,8 @@ After applying candidate configuration, use this as an alternative to separate
 commit and push invocations:
 
 ```sh
-palo lab plan -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
-palo lab apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev plan -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 The combined action uses the commit action's `push_configuration` option. It
@@ -113,11 +113,11 @@ the job results and retry the push-only action when appropriate.
 of `templates`. A parent commit can affect multiple child groups. Push every
 affected group/template target after changing inherited policy.
 
-`env/lab/moved.tf` preserves existing resources while moving policy ownership
+`env/dev/moved.tf` preserves existing resources while moving policy ownership
 to `module.device_groups` and network ownership to `module.templates`. Review these
 moves in a fresh plan before applying; do not use an older saved plan.
 
-Run `palo lab overrides plan` and `palo lab overrides apply` after the normal
+Run `palo dev overrides plan` and `palo dev overrides apply` after the normal
 Terraform apply and before commit/push. See [per-device overrides](device-overrides.md).
 `--device` only limits helper writes; actions still target the full selected
 policy/template intersection.
@@ -127,8 +127,8 @@ policy/template intersection.
 After applying configuration/overrides and successfully committing Panorama:
 
 ```sh
-palo lab push-all --dry-run
-palo lab push-all
+palo dev push-all --dry-run
+palo dev push-all
 ```
 
 The command discovers current `module.deployment.deployment_items` through Terraform console,

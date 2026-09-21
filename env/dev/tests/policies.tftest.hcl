@@ -2,7 +2,7 @@ mock_provider "panos" {}
 
 run "parent_nat_and_security" {
   command = apply
-  module { source = "../../stacks/lab/policies/common" }
+  module { source = "../../stacks/dev/policies/common" }
   variables {
     items = {
       parent = { device_group = "parent", lan_zone = "inside", wan_zone = "outside", wan_interface = "ethernet1/3" }

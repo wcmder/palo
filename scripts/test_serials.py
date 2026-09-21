@@ -97,7 +97,7 @@ class SerialsTest(unittest.TestCase):
 
     def test_help_does_not_read_keyring(self):
         from palo_cli import cli
-        with patch.object(cli.sys, 'argv', ['palo', 'lab', 'serials', '--help']), patch.object(cli, 'workspace_root', return_value=self.root), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(cli.sys, 'argv', ['palo', 'dev', 'serials', '--help']), patch.object(cli, 'workspace_root', return_value=self.root), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(SystemExit) as result:
                 cli.main()
             self.assertEqual(result.exception.code, 0)

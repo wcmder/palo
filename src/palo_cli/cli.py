@@ -23,7 +23,7 @@ def prepare(argv, workspace, environ, backend=None):
         raise ValueError("Usage: palo <environment> <terraform-command> [arguments...]")
     name, command, *args = argv
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name):
-        raise ValueError("Environment must be a simple name, such as lab or lab2.")
+        raise ValueError("Environment must be a simple name, such as dev or dev2.")
     env_base = (workspace / "env").resolve()
     root = (env_base / name).resolve()
     if root.parent != env_base or not root.is_dir():
@@ -60,11 +60,11 @@ def prepare(argv, workspace, environ, backend=None):
 def main():
     if sys.argv[1:] in ([], ["-h"], ["--help"]):
         print("Usage: palo <environment> <terraform-command> [arguments...]\n"
-              "Examples: palo lab plan | palo lab apply | palo lab2 plan\n"
-              "Device variables: palo lab overrides plan | palo lab overrides apply [--device paa]\n"
-              "Push all targets: palo lab push-all [--dry-run] [--auto-approve]\n"
-              "Discover firewall serials: palo lab serials\n"
-              "Onboard firewalls: palo lab onboard plan | palo lab onboard apply\n"
+              "Examples: palo dev plan | palo dev apply | palo dev2 plan\n"
+              "Device variables: palo dev overrides plan | palo dev overrides apply [--device paa]\n"
+              "Push all targets: palo dev push-all [--dry-run] [--auto-approve]\n"
+              "Discover firewall serials: palo dev serials\n"
+              "Onboard firewalls: palo dev onboard plan | palo dev onboard apply\n"
               "Paths passed to Terraform are relative to the selected environment.\n"
               "init, validate, fmt, test, version and providers do not read keyring.")
         return 0

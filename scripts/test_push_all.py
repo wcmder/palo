@@ -15,7 +15,7 @@ class PushAllTest(unittest.TestCase):
 
     def run_batch(self, options, process):
         with patch.object(push_all.subprocess, 'run', process), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            return push_all.run(options, Path('/workspace/env/lab'), {'PANOS_PASSWORD': 'secret', 'TF_CLI_ARGS_apply': '-destroy'}, '/bin/terraform')
+            return push_all.run(options, Path('/workspace/env/dev'), {'PANOS_PASSWORD': 'secret', 'TF_CLI_ARGS_apply': '-destroy'}, '/bin/terraform')
 
     def discovery(self, targets):
         return Mock(returncode=0, stdout=json.dumps(json.dumps(targets)))
@@ -58,7 +58,7 @@ class PushAllTest(unittest.TestCase):
 
     def test_help_skips_credentials(self):
         from palo_cli import cli
-        with patch.object(cli.sys, 'argv', ['palo', 'lab', 'push-all', '--help']), patch.object(cli, 'workspace_root', return_value=Path('/workspace')), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(cli.sys, 'argv', ['palo', 'dev', 'push-all', '--help']), patch.object(cli, 'workspace_root', return_value=Path('/workspace')), patch.object(cli, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(SystemExit) as result:
                 cli.main()
             self.assertEqual(result.exception.code, 0)

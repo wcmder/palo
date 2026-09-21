@@ -1,21 +1,21 @@
 mock_provider "panos" {}
 
-# Exercise the real lab inputs, including both complete protection profiles.
-run "lab_zone_protection" {
+# Exercise the real dev inputs, including both complete protection profiles.
+run "dev_zone_protection" {
   command = apply
   assert {
     condition     = length(module.templates.name_id.zone_protection_profiles.spoke) == 2
     error_message = "The spoke template must create both WAN and LAN protection profiles."
   }
   assert {
-    condition     = jsondecode(base64decode(module.templates.name_id.zone_protection_profiles.spoke["spoke-wan-protection"])).location.template.name == var.templates.spoke.name
+    condition     = jsondecode(base64decode(module.templates.name_id.zone_protection_profiles.spoke[local.templates.spoke.zone_protection_profiles.wan.name])).location.template.name == var.templates.spoke.name
     error_message = "Zone protection profiles must belong to the spoke Panorama template."
   }
 }
 
 run "zone_profile_attachments" {
   command = apply
-  module { source = "../../stacks/lab/spoke_template" }
+  module { source = "../../stacks/dev/spoke_template" }
   variables {
     items = { example = {
       name        = "test-network"

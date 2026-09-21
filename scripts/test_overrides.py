@@ -145,13 +145,13 @@ class OverridesTest(unittest.TestCase):
 
     def test_cli_dispatch_does_not_execute_terraform(self):
         from palo_cli import cli
-        with patch('sys.argv', ['palo', 'lab', 'overrides', 'plan']), \
+        with patch('sys.argv', ['palo', 'dev', 'overrides', 'plan']), \
              patch.object(cli, 'workspace_root', return_value=Path('/workspace')), \
-             patch.object(cli, 'prepare', return_value=(['terraform', '-chdir=/workspace/env/lab', 'overrides'], {'test': 'env'})), \
+             patch.object(cli, 'prepare', return_value=(['terraform', '-chdir=/workspace/env/dev', 'overrides'], {'test': 'env'})), \
              patch.object(ov, 'run', return_value=0) as run, \
              patch.object(cli.os, 'execve') as execute:
             self.assertEqual(cli.main(), 0)
-            self.assertEqual(run.call_args.args[1], Path('/workspace/env/lab'))
+            self.assertEqual(run.call_args.args[1], Path('/workspace/env/dev'))
             execute.assert_not_called()
 
     def test_multiple_devices_keep_separate_values_on_same_stack(self):

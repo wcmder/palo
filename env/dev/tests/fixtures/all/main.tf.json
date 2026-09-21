@@ -71,7 +71,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0",
@@ -80,7 +80,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1",
@@ -94,7 +94,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0",
@@ -105,7 +105,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1",
@@ -121,7 +121,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0",
@@ -134,7 +134,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1",
@@ -152,7 +152,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0",
@@ -163,7 +163,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1",
@@ -179,7 +179,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0"
@@ -187,7 +187,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1"
@@ -200,7 +200,7 @@
         "item0": {
           "location": {
             "template": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "ethernet1/1",
@@ -209,7 +209,7 @@
         "item1": {
           "location": {
             "template": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "ethernet1/2",
@@ -223,7 +223,7 @@
         "item0": {
           "location": {
             "template": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0",
@@ -236,7 +236,7 @@
         "item1": {
           "location": {
             "template": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1",
@@ -254,7 +254,7 @@
         "item0": {
           "location": {
             "template": {
-              "name": "lab-0"
+              "name": "dev-0"
             }
           },
           "name": "example-0"
@@ -262,7 +262,7 @@
         "item1": {
           "location": {
             "template": {
-              "name": "lab-1"
+              "name": "dev-1"
             }
           },
           "name": "example-1"
@@ -275,7 +275,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0",
+              "name": "dev-0",
               "rulebase": "pre-rulebase"
             }
           },
@@ -291,7 +291,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1",
+              "name": "dev-1",
               "rulebase": "pre-rulebase"
             }
           },
@@ -312,7 +312,7 @@
         "item0": {
           "location": {
             "device_group": {
-              "name": "lab-0",
+              "name": "dev-0",
               "rulebase": "pre-rulebase"
             }
           },
@@ -328,7 +328,7 @@
         "item1": {
           "location": {
             "device_group": {
-              "name": "lab-1",
+              "name": "dev-1",
               "rulebase": "pre-rulebase"
             }
           },

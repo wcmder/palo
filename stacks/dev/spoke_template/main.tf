@@ -64,7 +64,7 @@ module "interfaces" {
   }
 }
 
-# Profiles are optional for other template callers; lab tfvars enables WAN and LAN.
+# Profiles are optional for other template callers; dev tfvars enables WAN and LAN.
 module "zone_protection_profiles" {
   for_each = var.items
   source   = "../../modules/panos/network/zone_protection_profile"
