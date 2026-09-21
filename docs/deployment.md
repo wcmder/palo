@@ -114,7 +114,9 @@ of `templates`. A parent commit can affect multiple child groups. Push every
 affected group/template target after changing inherited policy.
 
 `env/dev/moved.tf` preserves existing resources while moving policy ownership
-to `module.device_groups` and network ownership to `module.templates`. Review these
+from the former `module.templates` spoke instance to the explicit
+`module.spoke_template` call, and simplify the common
+policy addresses. Other historical keys require their own mapping. Review these
 moves in a fresh plan before applying; do not use an older saved plan.
 
 Run `palo dev overrides plan` and `palo dev overrides apply` after the normal

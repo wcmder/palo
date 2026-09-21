@@ -1,30 +1,30 @@
 output "name_id" {
-  description = "Resource-name/import-ID maps grouped by resource type and item."
+  description = "Resource-name/import-ID maps grouped by resource type."
   value = {
-    subinterfaces            = { for key, instance in module.subinterfaces : key => instance.name_id }
+    subinterfaces            = module.subinterfaces.name_id
     templates                = module.templates.name_id
     template_stacks          = module.template_stacks.name_id
-    variables                = { for key, instance in module.variables : key => instance.name_id }
-    interfaces               = { for key, instance in module.interfaces : key => instance.name_id }
-    zone_protection_profiles = { for key, instance in module.zone_protection_profiles : key => instance.name_id }
-    zones                    = { for key, instance in module.zones : key => instance.name_id }
-    virtual_routers          = { for key, instance in module.routers : key => instance.name_id }
-    routes                   = { for key, instance in module.routes : key => instance.name_id }
+    variables                = module.variables.name_id
+    interfaces               = module.interfaces.name_id
+    zone_protection_profiles = module.zone_protection_profiles.name_id
+    zones                    = module.zones.name_id
+    virtual_routers          = module.routers.name_id
+    routes                   = module.routes.name_id
   }
 }
 
 output "names" {
   value = {
-    subinterfaces   = { for key, instance in module.subinterfaces : key => instance.names }
+    subinterfaces   = module.subinterfaces.names
     templates       = module.templates.names
     template_stacks = module.template_stacks.names
-    interfaces      = { for key, instance in module.interfaces : key => instance.names }
-    variables       = { for key, instance in module.variables : key => instance.names }
+    interfaces      = module.interfaces.names
+    variables       = module.variables.names
   }
 }
 
 
 output "variable_values" {
-  description = "Configured template variable defaults keyed by item and variable name."
-  value       = { for key, instance in module.variables : key => instance.values }
+  description = "Configured template variable defaults keyed by variable name."
+  value       = module.variables.values
 }

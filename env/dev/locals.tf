@@ -50,6 +50,6 @@ locals {
 
   # tfvars files cannot reference locals directly, so resolve the set here.
   templates = { for key, item in var.templates : key => merge(item, {
-    zone_protection_profiles = try(item.zone_protection_profile_set, null) == null ? {} : local.zone_protection_profiles[item.zone_protection_profile_set]
+    zone_protection_profiles = local.zone_protection_profiles[item.zone_protection_profile_set]
   }) }
 }

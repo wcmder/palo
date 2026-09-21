@@ -1,7 +1,10 @@
 # Per-device variable overrides
 
-The shared template keeps `$wan_ip`, `$lan_ip` (VLAN 20), `$mgmt_ip` (VLAN 10), and `$default_gateway` set to
-`None`. Terraform manages the shared device group, template, stack, interfaces,
+The shared template takes explicit defaults for `$wan_ip`, `$lan_ip`,
+`$mgmt_ip`, and `$default_gateway` from root tfvars. Interface addresses
+are complete address/prefix strings or `"None"` for unassigned variables.
+They pass through directly; missing address fields fail evaluation.
+Terraform manages the shared device group, template, stack, interfaces,
 and device assignments. The `palo` XML API helper manages the individual
 firewall values that appear in **Panorama > Managed Devices > Summary > Variables**.
 

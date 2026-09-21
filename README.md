@@ -1,6 +1,7 @@
 # PAN-OS Terraform workspace
 
-Repository conventions: [structure.md](structure.md). Read this before changing Terraform.
+Repository conventions: [structure.md](structure.md). Read this before changing
+Terraform.
 
 Manage Palo Alto Networks firewalls through Panorama using reusable Terraform
 modules and the `palo` Python CLI. This project provides a development
@@ -46,9 +47,9 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   └── hub_template/        Placeholder for distinct hub networking
 │   └── modules/
 │       └── panos/
-│           ├── panorama/        Device groups, hierarchy, templates, stacks and variables
-│           ├── objects/         Addresses, address groups, services, service groups and tags
-│           ├── network/         Ethernet interfaces, zones, virtual routers and IPv4 routes
+│           ├── panorama/        Groups, hierarchy, templates and variables
+│           ├── objects/         Addresses, services, groups and tags
+│           ├── network/         Interfaces, zones, routers and routes
 │           ├── policy/          Security and NAT policies
 │           └── operations/      Commit and push actions
 └── docs/                        Module contract and deployment workflow
@@ -116,11 +117,11 @@ Python requirements are declared in `pyproject.toml`:
 - `keyring>=25.0.0,<26.0.0` for OS credential storage and retrieval.
 - `setuptools>=68` as the package build backend.
 
-The editable install command above installs the declared dependencies and
-their dependencies automatically; no separate `requirements.txt` is needed.
-Keyring needs an available, unlocked OS credential backend. The API helpers use
-Python's standard-library HTTPS and XML modules, so no separate HTTP client or
-PAN-OS Python SDK is required. Python tests use the built-in `unittest` module:
+The editable install command above installs the declared dependencies and their
+dependencies automatically; no separate `requirements.txt` is needed. Keyring
+needs an available, unlocked OS credential backend. The API helpers use Python's
+standard-library HTTPS and XML modules, so no separate HTTP client or PAN-OS
+Python SDK is required. Python tests use the built-in `unittest` module:
 
 ```sh
 scripts/venv/bin/python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -130,8 +131,8 @@ Terraform is a separate executable, not a Python dependency. Install Terraform
 **1.14 or newer** and make sure `terraform` is available on your `PATH`.
 
 Before running connected commands,
-[save your Panorama credentials in keyring](#save-and-retrieve-panorama-credentials-with-keyring)
-and set the matching service and username in `env/dev/palo.json`.
+[save your Panorama credentials in keyring][keyring-setup] and set the matching
+service and username in `env/dev/palo.json`.
 
 `palo` runs from any directory and selects a Terraform root by environment name:
 
@@ -290,8 +291,8 @@ palo dev serials
 This connects directly to each firewall over HTTPS using the existing keyring
 username/password and `skip_verify_certificate` setting. The account must work
 on each firewall and have XML API operational-command access. It reads
-[`show system info`](https://docs.paloaltonetworks.com/ngfw/api/getting-started/explore-xmlapi)
-and saves `env/dev/serial.json` as a hostname-to-serial map:
+[`show system info`][system-info] and saves `env/dev/serial.json` as a
+hostname-to-serial map:
 
 ```json
 {
@@ -354,7 +355,8 @@ defaults to a 60-minute lifetime and **100 total registration uses**. The
 default 50-device batch leaves capacity for retries:
 
 ```sh
-palo dev onboard apply --batch-size 50 --lifetime-minutes 120 --key-count 100 --timeout 600
+palo dev onboard apply \
+  --batch-size 50 --lifetime-minutes 120 --key-count 100 --timeout 600
 ```
 
 Keep every firewall in one `device` map; 1,000 pending devices automatically
@@ -389,11 +391,9 @@ the firewalls should use to reach Panorama. Direct HTTPS API access to all
 devices and firewall-to-Panorama management connectivity must be available. The
 helper currently handles one Panorama server, not HA migration.
 
-References:
-[Palo Alto onboarding workflow](https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/add-a-firewall-as-a-managed-device),
-[registration key commands](https://docs.paloaltonetworks.com/panorama/administration/troubleshooting/recover-managed-device-connectivity-to-panorama),
-and
-[XML API commits and job status](https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/commit).
+References: [Palo Alto onboarding workflow][onboarding-workflow],
+[registration key commands][registration-keys], and
+[XML API commits and job status][api-commits].
 
 ## Self-signed Panorama certificates
 
@@ -480,18 +480,24 @@ rather than merge values. Do not also define these variables in a leftover
 
 
 Composition variables use `type = any`; resource modules retain typed inputs.
-The template module still explicitly defines WAN/LAN interfaces, zones,
-variables, a router and default route. Set all network values in
-`templates.<key>.var`. To add a DMZ, add its values there and explicit resource
+Each declared stack call accepts one required, non-null `item` object. Dev
+declares `spoke_template` and `common_policies`; unused stacks have no root
+call. Feature module calls use one `items` map; only resource wrappers use
+`for_each`. The template stack explicitly defines interfaces, subinterfaces,
+zones, variables, routers and a default route. Set network values in
+`templates.spoke.var`. To add a DMZ, add its values there and explicit resource
 entries in spoke_template/main.tf; there is no need to duplicate the input
-schema across parent modules. Use `"None"` for unassigned IPs/gateway and `null`
-for unused prefixes. Assign device IP overrides with `palo dev overrides plan`
-and `palo dev overrides apply`; see
+schema across parent modules. Supply WAN, LAN and management addresses as
+complete strings, such as `"192.0.2.2/30"`, or `"None"` for an unassigned
+template variable. Values pass through directly; separate prefix fields are no
+longer used. Missing address fields raise Terraform errors. Assign device IP
+overrides with `palo dev overrides plan` and `palo dev overrides apply`; see
 [per-device overrides](docs/device-overrides.md). Common parent policies live in
-`stacks/dev/policies/common`. Set `policies.common.parent` in root tfvars with
-`device_group = "parent"`, `lan_zone`, `wan_zone`, and `wan_interface`. These
-common policy inputs are independent of templates; future site-specific policies
-may use template inputs. The parent pre-rulebases contain:
+`stacks/dev/policies/common`. Set one `policies.common` object in root tfvars
+with `device_group = "parent"`, `lan_zone`, `wan_zone`, `wan_interface`, and
+`default_security_rules`. These common policy inputs are independent of
+templates; future site-specific policies may use template inputs. The parent
+pre-rulebases contain:
 
 - Source NAT for any service exiting the WAN zone/interface, using dynamic IP
   and port translation to the interface address.
@@ -508,8 +514,84 @@ device-group/policy-type/rulebase scope; combine its ordered rules there.
 
 
 `hub_template` is also a scaffold. Hub devices with the same WAN/LAN resource
-layout can already use another `templates` entry. Implement a separate hub
-module only when its resource structure differs.
+layout can reuse the spoke stack through a new explicit root call with complete
+inputs. Update the root template-key validation and action inputs at the same
+time. Implement a separate hub module when its resource structure differs.
+
+## Per-device overrides: `palo dev overrides`
+
+`palo dev overrides` sets individual firewall values for shared Panorama
+template variables. `dev` selects `env/dev`. This is a Python CLI command that
+uses the Panorama XML API; it is separate from Terraform plan/apply.
+
+The desired overrides come from **`env/dev/device_overrides.json`**, which you
+create and edit. Start with
+[`device_overrides.json.example`](env/dev/device_overrides.json.example),
+replacing the example serial, stack name and addresses with your own values:
+
+```json
+{
+  "firewall_a": {
+    "serial": "YOUR_FIREWALL_SERIAL",
+    "template_stack": "YOUR_TEMPLATE_STACK",
+    "var": {
+      "wan_ip": "192.0.2.2/30",
+      "lan_ip": "198.51.100.1/24",
+      "mgmt_ip": "203.0.113.1/24",
+      "default_gateway": "192.0.2.1"
+    }
+  }
+}
+```
+
+`firewall_a` is a local selection key for `--device`. `serial` identifies the
+firewall, and `template_stack` must match its existing Panorama stack name (the
+configured `templates.spoke.stack` value in this example). The device must
+already be assigned to that stack, and the referenced IP Netmask variables must
+exist in its templates. JSON keys omit the `$`: `lan_ip` updates `$lan_ip`. Add
+more device entries to give firewalls sharing one template different values.
+
+| Source | Purpose |
+| --- | --- |
+| `env/dev/templates.auto.tfvars` | Shared defaults and device assignments |
+| `env/dev/device_overrides.json` | Desired per-firewall overrides |
+| Panorama candidate configuration | Current values to compare and verify |
+
+The helper does not generate the JSON from tfvars, discover desired addresses,
+or export GUI overrides into the file. You supply the desired values; it reads
+Panorama to determine what needs changing. Ordinary `palo dev plan` does not
+show these API-managed override changes.
+
+```sh
+# Preview differences against Panorama candidate configuration; no writes.
+palo dev overrides plan
+
+# Recompute differences, write changed overrides and read them back.
+palo dev overrides apply
+
+# Select a device by its JSON key.
+palo dev overrides plan --device firewall_a
+palo dev overrides apply --device firewall_a
+
+# Use another file; relative paths resolve under env/dev.
+palo dev overrides plan --file device_overrides.staging.json
+```
+
+Absolute `--file` paths are also accepted. Apply the shared Terraform
+configuration first, then run override plan/apply, then commit and push as shown
+below. `overrides apply` changes candidate configuration only; it does not
+commit or push. `--device` limits the override operation, not a later
+commit/push action.
+
+Only listed variables are managed. Omitting a variable or device leaves existing
+overrides unchanged. To remove an override and inherit the template default, set
+its JSON value to `null`, for example `"lan_ip": null`. Interface override
+values require IPv4 address/prefix strings; the gateway requires an IPv4
+address. The literal `"None"` is supported for shared template defaults, but is
+not an accepted override-file address. A reset to inheritance may inherit
+`"None"` if that is the template default. See
+[per-device overrides](docs/device-overrides.md) for validation, authentication
+and update details.
 
 ## Commit to Panorama and push to firewalls
 
@@ -522,7 +604,8 @@ palo dev overrides apply
 # Commit all configured policy groups, templates and stacks:
 palo dev apply -invoke='module.deployment.action.panos_commit.all'
 # Push only the intersection of group "spoke" and template entry "spoke":
-palo dev apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
 ```
 
 To push every configured target after the commit succeeds:
@@ -547,8 +630,10 @@ module "deployment" {
 After committing, push only templates or only policies with:
 
 ```sh
-palo dev apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
-palo dev apply -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'
 ```
 
 Use `plan` instead of `apply` to preview. These keys identify a template input
@@ -573,8 +658,10 @@ options are ignored.
 For a scoped commit, or a combined commit and push:
 
 ```sh
-palo dev apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
-palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 Scoped commits include the target's parent group, child group, template and
@@ -630,14 +717,14 @@ combined `commit_and_push` action also retains its scoped partial commit.
 Shared zone protection settings live in `env/dev/locals.tf`. Select them with
 `zone_protection_profile_set = "standard"` in a template entry in
 `templates.auto.tfvars`. The root resolves that name and passes
-`local.templates` to the template module; tfvars cannot reference locals
-directly. The `wan` and `lan` entries create separate profiles and attach them
-to their respective zones through `network.zone_protection_profile`. The
+`local.templates.spoke` to the spoke template module; tfvars cannot reference
+locals directly. The `wan` and `lan` entries create separate profiles and attach
+them to their respective zones through `network.zone_protection_profile`. The
 reusable `network/zone_protection_profile` module supports multiple profiles and
-returns `name_id` and `names` maps. Templates that omit the set selector create
-no profiles. Profile names are explicit in the shared WAN/LAN definitions in
-`locals.tf`: `spoke-wan-protection` and `spoke-lan-protection`. Each selected
-template creates its own profiles with those names in its template scope.
+returns `name_id` and `names` maps. The set selector and both profile entries
+are required. Profile names are explicit in the shared WAN/LAN definitions in
+`locals.tf`: `wan-protection` and `lan-protection`. Each selected template
+creates its own profiles with those names in its template scope.
 
 The dev enables SYN cookies, UDP/ICMP/ICMPv6/other-IP flood protection, TCP/UDP
 scan and host-sweep blocking, and malformed/source-routing/TCP packet checks.
@@ -652,10 +739,8 @@ values**: TCP SYN/UDP/other IP use alarm/activate/maximum rates of
 normal and peak traffic and firewall capacity before applying to a busier
 environment. SYN cookies also consume CPU. Reconnaissance uses 100 events in 2
 seconds for port scans and 10 seconds for host sweeps. These controls act on
-ingress traffic. See Palo Alto's
-[zone protection guidance](https://docs.paloaltonetworks.com/ngfw/administration/zone-protection-and-dos-protection/zone-defense/zone-protection-profiles)
-and
-[reconnaissance settings](https://docs.paloaltonetworks.com/ngfw/help/12-1/network/network-network-profiles/network-network-profiles-zone-protection/reconnaissance-protection).
+ingress traffic. See Palo Alto's [zone protection guidance][zone-protection] and
+[reconnaissance settings][reconnaissance].
 
 Deploy with a normal plan/apply, then commit Panorama and push the template:
 
@@ -663,7 +748,8 @@ Deploy with a normal plan/apply, then commit Panorama and push the template:
 palo dev plan
 palo dev apply
 palo dev apply -invoke='module.deployment.action.panos_commit.all'
-palo dev apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
+palo dev apply \
+  -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
 ```
 
 Common policies also accept `default_security_rules` in root tfvars. The dev
@@ -678,10 +764,35 @@ and push the child device group's policies to activate the change.
 Spoke subinterface assignments come from `env/dev/templates.auto.tfvars`: set
 `mgmt_subinterface_tag`, `mgmt_zone`, and `mgmt_virtual_router` for management,
 and `lan_subinterface_tag`, `lan_zone`, and `data_virtual_router` for data.
-Spoke LAN networking uses the configured `lan_interface` as an unnumbered Layer 3
-parent. VLAN 10 (`ethernet1/2.10` in dev) belongs to the `mgmt` zone and new
-`mgmt` virtual router, using `$mgmt_ip`. VLAN 20 (`ethernet1/2.20`) belongs to the
-configured LAN zone and data router, using `$lan_ip`. Supply `mgmt_ip` and
-`mgmt_prefix_length` alongside the existing LAN address fields; dev leaves both
-addresses as `None`. The WAN default route remains in the data router; the
-management router has no static routes configured.
+Spoke LAN networking uses the configured `lan_interface` as an unnumbered Layer
+3 parent. Management and data subinterfaces use their configured tags, zones and
+routers. Supply `mgmt_ip` and `lan_ip` as complete address/prefix strings or
+`"None"`. The WAN default route remains in the data router; the management
+router has no static routes configured.
+
+The dev root currently declares only the `spoke` template role. Add a separate
+explicit root stack call and complete input to introduce another role.
+`policies.common` is one object (no `parent` wrapper). State moves for the
+previous dev addresses are in `env/dev/moved.tf`; review a fresh plan before
+applying.
+
+[keyring-setup]:
+  #save-and-retrieve-panorama-credentials-with-keyring
+
+[system-info]:
+  https://docs.paloaltonetworks.com/ngfw/api/getting-started/explore-xmlapi
+
+[onboarding-workflow]:
+  https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/add-a-firewall-as-a-managed-device
+
+[registration-keys]:
+  https://docs.paloaltonetworks.com/panorama/administration/troubleshooting/recover-managed-device-connectivity-to-panorama
+
+[api-commits]:
+  https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/commit
+
+[zone-protection]:
+  https://docs.paloaltonetworks.com/ngfw/administration/zone-protection-and-dos-protection/zone-defense/zone-protection-profiles
+
+[reconnaissance]:
+  https://docs.paloaltonetworks.com/ngfw/help/12-1/network/network-network-profiles/network-network-profiles-zone-protection/reconnaissance-protection

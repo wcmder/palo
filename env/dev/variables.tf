@@ -16,9 +16,19 @@ variable "device_groups" {
 }
 
 variable "templates" {
-  description = "Independent network template/stack configurations, each with its own serials and var object."
+  description = "Required spoke template object passed to the explicit stack call."
   type        = any
-  default     = {}
+  nullable    = false
+  validation {
+    condition     = alltrue([for key in keys(var.templates) : key == "spoke"])
+    error_message = "This root declares only spoke. Add an explicit root stack call before introducing another role."
+  }
+  validation {
+    condition = alltrue([for field in ["name", "stack"] :
+      length(distinct([for item in values(var.templates) : item[field]])) == length(var.templates)
+    ])
+    error_message = "Each template must have a unique name and stack."
+  }
   validation {
     condition     = length(distinct(flatten([for item in values(var.templates) : item.serials]))) == length(flatten([for item in values(var.templates) : item.serials]))
     error_message = "A firewall can belong to only one template stack."
@@ -32,7 +42,7 @@ variable "templates" {
 }
 
 variable "policies" {
-  description = "Policy inputs by policy family. Common policies are independent of template inputs."
+  description = "Policy inputs by family. common is one object with device_group and network settings; all fields consumed by the stack must be supplied."
   type        = any
-  default     = {}
+  nullable    = false
 }
