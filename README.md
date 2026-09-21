@@ -108,6 +108,25 @@ cp env/dev/templates.auto.tfvars.example env/dev/templates.auto.tfvars
 cp env/dev/policies.auto.tfvars.example env/dev/policies.auto.tfvars
 ```
 
+Python requirements are declared in `pyproject.toml`:
+
+- Python **3.9 or newer**, with `pip` and `venv` available.
+- `keyring>=25.0.0,<26.0.0` for OS credential storage and retrieval.
+- `setuptools>=68` as the package build backend.
+
+The editable install command above installs the declared dependencies and
+their dependencies automatically; no separate `requirements.txt` is needed.
+Keyring needs an available, unlocked OS credential backend. The API helpers use
+Python's standard-library HTTPS and XML modules, so no separate HTTP client or
+PAN-OS Python SDK is required. Python tests use the built-in `unittest` module:
+
+```sh
+scripts/venv/bin/python3 -m unittest discover -s scripts -p 'test_*.py'
+```
+
+Terraform is a separate executable, not a Python dependency. Install Terraform
+**1.14 or newer** and make sure `terraform` is available on your `PATH`.
+
 Before running connected commands,
 [save your Panorama credentials in keyring](#save-and-retrieve-panorama-credentials-with-keyring)
 and set the matching service and username in `env/dev/palo.json`.
@@ -116,6 +135,13 @@ and set the matching service and username in `env/dev/palo.json`.
 
 ```sh
 palo dev init
+palo dev plan
+palo dev apply
+```
+
+Saving a plan file is optional. To save and then apply that specific plan:
+
+```sh
 palo dev plan -out=dev.tfplan
 palo dev apply dev.tfplan
 ```
