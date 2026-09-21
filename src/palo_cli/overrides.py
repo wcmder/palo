@@ -9,7 +9,7 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-FIELDS = {'wan_ip', 'lan_ip', 'default_gateway'}
+FIELDS = {'wan_ip', 'lan_ip', 'mgmt_ip', 'default_gateway'}
 
 
 def unique_object(pairs):
@@ -45,7 +45,7 @@ def load_devices(path, selected=None):
         seen.add(item['serial'])
         values = item['var']
         if not isinstance(values, dict) or not values or set(values) - FIELDS:
-            raise ValueError(name + ': var supports wan_ip, lan_ip and default_gateway only.')
+            raise ValueError(name + ': var supports wan_ip, lan_ip, mgmt_ip and default_gateway only.')
         for field, value in values.items():
             if value is None:  # Explicit reset to inheritance.
                 continue

@@ -17,16 +17,22 @@ run "independent_policy_and_template_membership" {
       description = "Test network"
       serials     = ["A", "B"]
       var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone          = "wan"
-        lan_zone          = "lan"
-        wan_ip            = "None"
-        wan_prefix_length = null
-        lan_ip            = "None"
-        lan_prefix_length = null
-        default_gateway   = "None"
-        virtual_router    = "test-vr"
+        wan_interface         = "ethernet1/1"
+        lan_interface         = "ethernet1/2"
+        lan_subinterface_tag  = 20
+        mgmt_subinterface_tag = 10
+        mgmt_zone             = "mgmt"
+        mgmt_virtual_router   = "mgmt"
+        wan_zone              = "wan"
+        lan_zone              = "lan"
+        wan_ip                = "None"
+        wan_prefix_length     = null
+        lan_ip                = "None"
+        lan_prefix_length     = null
+        mgmt_ip               = "None"
+        mgmt_prefix_length    = null
+        default_gateway       = "None"
+        data_virtual_router   = "test-vr"
       }
       }, hub = {
       name        = "hub-network"
@@ -34,16 +40,22 @@ run "independent_policy_and_template_membership" {
       description = "Test network"
       serials     = ["H"]
       var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone          = "wan"
-        lan_zone          = "lan"
-        wan_ip            = "None"
-        wan_prefix_length = null
-        lan_ip            = "None"
-        lan_prefix_length = null
-        default_gateway   = "None"
-        virtual_router    = "test-vr"
+        wan_interface         = "ethernet1/1"
+        lan_interface         = "ethernet1/2"
+        lan_subinterface_tag  = 20
+        mgmt_subinterface_tag = 10
+        mgmt_zone             = "mgmt"
+        mgmt_virtual_router   = "mgmt"
+        wan_zone              = "wan"
+        lan_zone              = "lan"
+        wan_ip                = "None"
+        wan_prefix_length     = null
+        lan_ip                = "None"
+        lan_prefix_length     = null
+        mgmt_ip               = "None"
+        mgmt_prefix_length    = null
+        default_gateway       = "None"
+        data_virtual_router   = "test-vr"
       }
     } }
   }
@@ -124,16 +136,22 @@ run "reject_blank_serial" {
       description = "Test network"
       serials     = [""]
       var = {
-        wan_interface     = "ethernet1/1"
-        lan_interface     = "ethernet1/2"
-        wan_zone          = "wan"
-        lan_zone          = "lan"
-        wan_ip            = "None"
-        wan_prefix_length = null
-        lan_ip            = "None"
-        lan_prefix_length = null
-        default_gateway   = "None"
-        virtual_router    = "test-vr"
+        wan_interface         = "ethernet1/1"
+        lan_interface         = "ethernet1/2"
+        lan_subinterface_tag  = 20
+        mgmt_subinterface_tag = 10
+        mgmt_zone             = "mgmt"
+        mgmt_virtual_router   = "mgmt"
+        wan_zone              = "wan"
+        lan_zone              = "lan"
+        wan_ip                = "None"
+        wan_prefix_length     = null
+        lan_ip                = "None"
+        lan_prefix_length     = null
+        mgmt_ip               = "None"
+        mgmt_prefix_length    = null
+        default_gateway       = "None"
+        data_virtual_router   = "test-vr"
       }
     } }
   }

@@ -1,6 +1,7 @@
 output "name_id" {
   description = "Resource-name/import-ID maps grouped by resource type and item."
   value = {
+    subinterfaces            = { for key, instance in module.subinterfaces : key => instance.name_id }
     templates                = module.templates.name_id
     template_stacks          = module.template_stacks.name_id
     variables                = { for key, instance in module.variables : key => instance.name_id }
@@ -14,6 +15,7 @@ output "name_id" {
 
 output "names" {
   value = {
+    subinterfaces   = { for key, instance in module.subinterfaces : key => instance.names }
     templates       = module.templates.names
     template_stacks = module.template_stacks.names
     interfaces      = { for key, instance in module.interfaces : key => instance.names }

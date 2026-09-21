@@ -17,7 +17,7 @@ STACK = '''<response status="success"><result><entry name="shared-stack">
 <entry name="serial-a"><variable><entry name="$wan_ip"><type><ip-netmask>10.0.1.3/24</ip-netmask></type></entry>
 <entry name="$unrelated"><type><fqdn>keep.example</fqdn></type></entry></variable></entry>
 <entry name="serial-b"/></devices></entry></result></response>'''
-TEMPLATE = '<response status="success"><result><variable>' + ''.join('<entry name="$%s"><type><ip-netmask>None</ip-netmask></type></entry>' % f for f in ['wan_ip', 'lan_ip', 'default_gateway']) + '</variable></result></response>'
+TEMPLATE = '<response status="success"><result><variable>' + ''.join('<entry name="$%s"><type><ip-netmask>None</ip-netmask></type></entry>' % f for f in ['wan_ip', 'lan_ip', 'mgmt_ip', 'default_gateway']) + '</variable></result></response>'
 
 
 class FakeAPI:
@@ -83,6 +83,16 @@ class OverridesTest(unittest.TestCase):
                 self.load({'bad': bad})
         with self.assertRaises(ValueError):
             self.load({'a': DEVICE, 'b': DEVICE})
+
+    def test_management_override(self):
+        device = copy.deepcopy(DEVICE)
+        device['var'] = {'mgmt_ip': '10.1.10.2/24'}
+        devices = self.load({'paa': device})
+        api = FakeAPI()
+        changes = ov.preview(api, devices)
+        self.assertEqual(ov.apply_changes(api, changes), 1)
+        self.assertEqual(api.stack.findtext(".//entry[@name='$mgmt_ip']/type/ip-netmask"), '10.1.10.2/24')
+        self.assertEqual(ov.preview(api, devices), [])
 
     def test_duplicate_json_keys(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate'):

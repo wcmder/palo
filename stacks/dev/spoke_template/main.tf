@@ -32,9 +32,15 @@ module "variables" {
     }
     lan_ip = {
       name        = "$lan_ip"
-      description = "LAN interface IPv4 address and prefix length"
+      description = "LAN subinterface IPv4 address and prefix length"
       location    = { template = { name = module.templates.names[each.key] } }
       type        = { ip_netmask = each.value.var.lan_ip == "None" ? "None" : "${each.value.var.lan_ip}/${each.value.var.lan_prefix_length}" }
+    }
+    mgmt_ip = {
+      name        = "$mgmt_ip"
+      description = "Management subinterface IPv4 address and prefix length"
+      location    = { template = { name = module.templates.names[each.key] } }
+      type        = { ip_netmask = each.value.var.mgmt_ip == "None" ? "None" : "${each.value.var.mgmt_ip}/${each.value.var.mgmt_prefix_length}" }
     }
     default_gateway = {
       name        = "$default_gateway"
@@ -59,7 +65,30 @@ module "interfaces" {
       name     = each.value.var.lan_interface
       comment  = "LAN interface"
       location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
-      layer3   = { ips = [{ name = module.variables[each.key].names["lan_ip"] }] }
+      layer3   = {}
+    }
+  }
+}
+
+module "subinterfaces" {
+  for_each = var.items
+  source   = "../../modules/panos/network/ethernet_layer3_subinterface"
+  items = {
+    mgmt = {
+      name     = "${module.interfaces[each.key].names["lan"]}.${each.value.var.mgmt_subinterface_tag}"
+      parent   = module.interfaces[each.key].names["lan"]
+      location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
+      tag      = each.value.var.mgmt_subinterface_tag
+      comment  = "Management subinterface"
+      ip       = [{ name = module.variables[each.key].names["mgmt_ip"] }]
+    }
+    lan = {
+      name     = "${module.interfaces[each.key].names["lan"]}.${each.value.var.lan_subinterface_tag}"
+      parent   = module.interfaces[each.key].names["lan"]
+      location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
+      tag      = each.value.var.lan_subinterface_tag
+      comment  = "LAN subinterface"
+      ip       = [{ name = module.variables[each.key].names["lan_ip"] }]
     }
   }
 }
@@ -68,9 +97,15 @@ module "interfaces" {
 module "zone_protection_profiles" {
   for_each = var.items
   source   = "../../modules/panos/network/zone_protection_profile"
-  items = { for key, profile in try(each.value.zone_protection_profiles, {}) : key => merge(profile, {
-    location = { template = { name = module.templates.names[each.key] } }
-  }) }
+  # Keep each role visible; the final filter omits profiles not configured by the caller.
+  items = { for key, profile in {
+    wan = try(each.value.zone_protection_profiles.wan, null) == null ? null : merge(each.value.zone_protection_profiles.wan, {
+      location = { template = { name = module.templates.names[each.key] } }
+    })
+    lan = try(each.value.zone_protection_profiles.lan, null) == null ? null : merge(each.value.zone_protection_profiles.lan, {
+      location = { template = { name = module.templates.names[each.key] } }
+    })
+  } : key => profile if profile != null }
 }
 
 module "zones" {
@@ -85,11 +120,16 @@ module "zones" {
         zone_protection_profile = try(module.zone_protection_profiles[each.key].names["wan"], null)
       }
     }
+    mgmt = {
+      name     = each.value.var.mgmt_zone
+      location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
+      network  = { layer3 = [module.subinterfaces[each.key].names["mgmt"]] }
+    }
     lan = {
       name     = each.value.var.lan_zone
       location = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
       network = {
-        layer3                  = [module.interfaces[each.key].names["lan"]]
+        layer3                  = [module.subinterfaces[each.key].names["lan"]]
         zone_protection_profile = try(module.zone_protection_profiles[each.key].names["lan"], null)
       }
     }
@@ -101,12 +141,17 @@ module "routers" {
   for_each = var.items
   source   = "../../modules/panos/network/virtual_router"
   items = {
+    mgmt = {
+      name       = each.value.var.mgmt_virtual_router
+      location   = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
+      interfaces = [module.subinterfaces[each.key].names["mgmt"]]
+    }
     # Existing routers must be imported before Terraform manages membership.
     # Changing the name of a router already in state is not an adoption.
     data = {
-      name       = each.value.var.virtual_router
+      name       = each.value.var.data_virtual_router
       location   = { template = { name = module.templates.names[each.key], vsys = "vsys1" } }
-      interfaces = [module.interfaces[each.key].names["wan"], module.interfaces[each.key].names["lan"]]
+      interfaces = [module.interfaces[each.key].names["wan"], module.subinterfaces[each.key].names["lan"]]
     }
   }
 }

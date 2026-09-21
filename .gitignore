@@ -3,6 +3,7 @@
 *.tfstate.*
 *.tfplan
 *.tfvars.json
+serial.json
 !*.tfvars.example
 *.lock.hcl
 crash.log

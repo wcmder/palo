@@ -1,5 +1,7 @@
 # PAN-OS Terraform workspace
 
+Repository conventions: [structure.md](structure.md). Read this before changing Terraform.
+
 Manage Palo Alto Networks firewalls through Panorama using reusable Terraform
 modules and the `palo` Python CLI. This project provides a development
 environment for building shared policies, configuring firewall networking, and
@@ -672,3 +674,14 @@ matches; it does not affect traffic switched without traversing the firewall.
 `interzone-default` retains its built-in deny behavior. One module must own the
 complete default-security override list for each scope. Apply, commit Panorama,
 and push the child device group's policies to activate the change.
+
+Spoke subinterface assignments come from `env/dev/templates.auto.tfvars`: set
+`mgmt_subinterface_tag`, `mgmt_zone`, and `mgmt_virtual_router` for management,
+and `lan_subinterface_tag`, `lan_zone`, and `data_virtual_router` for data.
+Spoke LAN networking uses the configured `lan_interface` as an unnumbered Layer 3
+parent. VLAN 10 (`ethernet1/2.10` in dev) belongs to the `mgmt` zone and new
+`mgmt` virtual router, using `$mgmt_ip`. VLAN 20 (`ethernet1/2.20`) belongs to the
+configured LAN zone and data router, using `$lan_ip`. Supply `mgmt_ip` and
+`mgmt_prefix_length` alongside the existing LAN address fields; dev leaves both
+addresses as `None`. The WAN default route remains in the data router; the
+management router has no static routes configured.
