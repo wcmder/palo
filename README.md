@@ -25,9 +25,9 @@ Supported features include:
   Python command that pushes all configured combined deployment targets.
 - OS keyring authentication and separate environment inputs and state.
 
-The included `dev` configuration implements spoke networking and common parent
-policies. Branch-specific policies, hub-specific policies, and distinct hub
-networking remain scaffolds. Normal Terraform apply writes candidate
+The included `dev` configuration implements spoke and hub networking with
+GRE and BGP, plus common parent policies. Spoke-specific and hub-specific
+policies remain scaffolds. Normal Terraform apply writes candidate
 configuration; commits and pushes are explicit operations.
 
 Environment roots call composed stacks, which call reusable feature modules:
@@ -41,15 +41,17 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   ├── device_groups/       Device groups, parent hierarchy and membership
 │   │   ├── policies/
 │   │   │   ├── common/          Common parent Security, NAT and default rules
-│   │   │   ├── branch/          Future branch policies for child groups
+│   │   │   ├── spoke/           Future spoke policies for child groups
 │   │   │   └── hub/             Future hub policies for child groups
 │   │   ├── templates/
 │   │   │   ├── shared/common/   Shared device settings template
 │   │   │   ├── spoke/
-│   │   │   │   ├── network/   Spoke tunnel template and GRE configuration
-│   │   │   │   └── stacks/    Ordered template membership and devices
-│   │   │   └── hub/network/   Hub tunnel template and GRE configuration
-│   │   └── hub_template/        Placeholder for distinct hub networking
+│   │   │   │   ├── network/     Spoke network template, GRE and BGP
+│   │   │   │   └── stacks/      Spoke template membership and devices
+│   │   │   └── hub/
+│   │   │       ├── network/     Hub network template, GRE and BGP
+│   │   │       └── stacks/      Hub template membership and devices
+│   │   └── hub_template/        Legacy unused scaffold
 │   └── modules/
 │       └── panos/
 │           ├── panorama/        Groups, hierarchy, templates and variables
@@ -419,12 +421,12 @@ invocations do not read `palo.json`.
 
 ## Add another environment
 
-Create `env/dev2` with its own root `.tf` files and a `palo.json`, for example:
+Create `env/prod` with its own root `.tf` files and a `palo.json`, for example:
 
 ```json
 {
-  "hostname": "panorama-dev2.example.com",
-  "keyring_service": "panos_dev2",
+  "hostname": "panorama-prod.example.com",
+  "keyring_service": "panos_prod",
   "keyring_username": "terraform-admin"
 }
 ```
@@ -432,10 +434,10 @@ Create `env/dev2` with its own root `.tf` files and a `palo.json`, for example:
 With the virtual environment activated, save the separate account:
 
 ```sh
-python -m keyring set panos_dev2 terraform-admin
+python -m keyring set panos_prod terraform-admin
 ```
 
-Then run `palo dev2 init` and `palo dev2 plan` from anywhere in that shell.
+Then run `palo prod init` and `palo prod plan` from anywhere in that shell.
 Reuse the shared modules. Give each root its own state/backend key. Copy only
 source configuration when creating a new environment, never `.terraform`, state,
 or saved plans. No launcher changes are required.
@@ -536,7 +538,7 @@ and `hub` policy folders remain scaffolds. One module instance must own each
 device-group/policy-type/rulebase scope; combine its ordered rules there.
 
 
-## Common templates and spoke stacks
+## Common templates and spoke/hub stacks
 
 Template definitions and stack assignments are separate:
 
@@ -569,9 +571,12 @@ The current spoke stack uses `["spoke", "common"]`; the hub stack uses
 `["hub", "common"]`. All network resources live in their respective role
 templates; stacks contain membership and device assignments only.
 
-`stacks/dev/templates/shared/common` owns the shared template, and
-`stacks/dev/templates/spoke/stacks` owns stack creation. Each call accepts one
-required object; module calls have no `for_each` or null guards. The existing
+`stacks/dev/templates/shared/common` owns the shared template. Both
+`stacks/dev/templates/spoke/` and `stacks/dev/templates/hub/` provide a
+`network/` module for network resources and a `stacks/` module for ordered
+template membership and device assignments. The current root `hub_stack` call
+still reuses `spoke/stacks`, although `hub/stacks` is available. Each call
+accepts one required object; module calls have no `for_each` or null guards. The existing
 template and stack names are preserved. Existing deployments need a Panorama
 ownership migration from common networking and stack overrides. See the
 [migration procedure](docs/gre.md#migration-from-shared-networking) before
