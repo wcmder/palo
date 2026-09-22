@@ -237,7 +237,7 @@ module "routers" {
       ]
       protocol = {
         redist_profile = [{
-          name     = "management-connected"
+          name     = "mgmt-connected"
           priority = 10
           action   = { redist = {} }
           filter = {
@@ -263,7 +263,7 @@ module "routers" {
           ]
           peer_group = [
             {
-              name   = "spoke"
+              name   = "spoke_peers"
               enable = true
               type = { ebgp = {
                 export_nexthop    = "use-self"
@@ -305,7 +305,7 @@ module "routers" {
             }
           ]
           redist_rules = [{
-            name                      = "management-connected"
+            name                      = "mgmt-connected"
             enable                    = true
             address_family_identifier = "ipv4"
             route_table               = "unicast"

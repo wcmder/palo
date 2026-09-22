@@ -77,6 +77,23 @@ run "spoke_bgp" {
   }
   assert {
     condition = (
+      alltrue([
+        for profile in module.routers.routing.mgmt.redist_profile :
+        length(profile.name) <= 16
+      ]) &&
+      alltrue(flatten([
+        for group in module.routers.routing.mgmt.bgp.peer_group : [
+          for peer in group.peer : !contains(
+            [for g in module.routers.routing.mgmt.bgp.peer_group : g.name],
+            peer.name
+          )
+        ]
+      ]))
+    )
+    error_message = "Profile names must fit and peer/group names must differ."
+  }
+  assert {
+    condition = (
       module.routers.routing.mgmt.redist_profile[0].filter.type ==
       tolist(["connect"]) &&
       module.routers.routing.mgmt.redist_profile[0].filter.interface ==
@@ -143,7 +160,8 @@ run "hub_bgp" {
       output.variable_values["$local_bgp_asn"] ==
       var.network.local_bgp_asn &&
       module.routers.routing.mgmt.bgp.router_id == "$bgp_router_id" &&
-      length(module.routers.routing.mgmt.bgp.peer_group) == 2 &&
+      length(module.routers.routing.mgmt.bgp.peer_group) == 1 &&
+      length(module.routers.routing.mgmt.bgp.peer_group[0].peer) == 2 &&
       module.routers.routing.data == null
     )
     error_message = "BGP must run only on mgmt with the expected peers."
@@ -170,23 +188,40 @@ run "hub_bgp" {
   }
   assert {
     condition = (
-      module.routers.routing.mgmt.bgp.peer_group[1].type.ebgp != null &&
-      module.routers.routing.mgmt.bgp.peer_group[1].peer[0].local_address == {
+      module.routers.routing.mgmt.bgp.peer_group[0].type.ebgp != null &&
+      module.routers.routing.mgmt.bgp.peer_group[0].peer[1].local_address == {
         interface = var.network.spoke_b_interface
         ip        = "$spoke_b_tunnel_ip"
       } &&
-      module.routers.routing.mgmt.bgp.peer_group[1].peer[0].peer_as ==
+      module.routers.routing.mgmt.bgp.peer_group[0].peer[1].peer_as ==
       "$spoke_b_remote_bgp_asn" &&
-      module.routers.routing.mgmt.bgp.peer_group[1].peer[0].peer_address.ip ==
+      module.routers.routing.mgmt.bgp.peer_group[0].peer[1].peer_address.ip ==
       "$spoke_b_remote_bgp_peer_ip" &&
       module.routers.routing.mgmt.bgp.auth_profile[1].secret ==
       var.network.spoke_b_bgp_password &&
-      module.routers.routing.mgmt.bgp.peer_group[1].peer[0].connection_options[
+      module.routers.routing.mgmt.bgp.peer_group[0].peer[1].connection_options[
         "authentication"
       ] ==
       module.routers.routing.mgmt.bgp.auth_profile[1].name
     )
     error_message = "Peer spoke_b must use its tunnel, variables and auth."
+  }
+  assert {
+    condition = (
+      alltrue([
+        for profile in module.routers.routing.mgmt.redist_profile :
+        length(profile.name) <= 16
+      ]) &&
+      alltrue(flatten([
+        for group in module.routers.routing.mgmt.bgp.peer_group : [
+          for peer in group.peer : !contains(
+            [for g in module.routers.routing.mgmt.bgp.peer_group : g.name],
+            peer.name
+          )
+        ]
+      ]))
+    )
+    error_message = "Profile names must fit and peer/group names must differ."
   }
   assert {
     condition = (
