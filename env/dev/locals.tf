@@ -57,25 +57,48 @@ locals {
     }
   }
 
-  # tfvars files cannot reference locals directly, so resolve the set here.
+  # Resolve shared profile selections for the common template input.
   templates = {
-    common = merge(var.templates.common, {
+    spoke = var.templates.spoke
+    hub   = var.templates.hub
+    common = {
+      name        = var.templates.common.name
+      description = var.templates.common.description
+      var         = var.templates.common.var
       zone_protection_profiles = local.zone_protection_profiles[
         var.templates.common.zone_protection_profile_set
       ]
       interface_management_profiles = local.interface_management_profiles[
         var.templates.common.interface_management_profile_set
       ]
+    }
+  }
+
+  # Combine shared networking with each role's deployment-specific values.
+  networks = {
+    spoke = merge(var.templates.common.var, var.templates.spoke.var, {
+      wan_address_reference = module.common_template.names.variables.wan_ip
+    })
+    hub = merge(var.templates.common.var, var.templates.hub.var, {
+      wan_address_reference = module.common_template.names.variables.wan_ip
     })
   }
 
-  # Translate root template keys to names of templates created once above.
+  # Resolve logical template keys once for stack and deployment inputs.
   template_names = {
-    common = module.common_template.names.templates["template"]
+    common = module.common_template.names.template
+    spoke  = module.spoke_template.names.template
+    hub    = module.hub_template.names.template
   }
+
   template_stacks = {
-    for key, item in var.template_stacks : key => merge(item, {
-      templates = [for key in item.templates : local.template_names[key]]
-    })
+    for key, item in var.template_stacks : key => {
+      name        = item.name
+      description = item.description
+      serials     = item.serials
+      templates = [
+        for name in item.templates : local.template_names[name]
+      ]
+    }
   }
 }

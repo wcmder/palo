@@ -24,21 +24,46 @@ templates = {
       lan_ip                = "None"
       mgmt_ip               = "None"
     }
-
   }
+
+  spoke = {
+    name             = "spoke-network"
+    description      = "Spoke GRE tunnel to hub"
+    tunnel_interface = "tunnel.100"
+    var = {
+      hub_wan_ip   = "10.0.3.2"
+      tunnel_ip    = "None"
+      gre_local_ip = "None"
+    }
+  }
+
+  hub = {
+    name              = "hub-network"
+    description       = "Hub GRE tunnels to spoke"
+    spoke_a_interface = "tunnel.101"
+    spoke_b_interface = "tunnel.102"
+    var = {
+      hub_wan_ip        = "10.0.3.2"
+      spoke_a_wan_ip    = "10.0.1.2"
+      spoke_b_wan_ip    = "10.0.2.2"
+      spoke_a_tunnel_ip = "None"
+      spoke_b_tunnel_ip = "None"
+    }
+  }
+
 }
 
 template_stacks = {
   spoke = {
     name        = "spoke-stack"
     description = "Terraform-managed"
-    templates   = ["common"]
+    templates   = ["spoke", "common"]
     serials     = ["007954000920842", "007954000920860"]
   }
   hub = {
     name        = "hub-stack"
     description = "Terraform-managed"
-    templates   = ["common"]
+    templates   = ["hub", "common"]
     serials     = ["007954000920861"]
   }
 }

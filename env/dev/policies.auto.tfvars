@@ -2,6 +2,8 @@
 policies = {
   common = {
     device_group  = "parent"
+    mgmt_zone     = "mgmt"
+    gre_endpoints = ["10.0.1.2", "10.0.2.2", "10.0.3.2"]
     lan_zone      = "lan"
     wan_zone      = "wan"
     wan_interface = "ethernet1/1"

@@ -75,9 +75,20 @@ module "security-pre" {
     location = { device_group = { name = var.item.device_group, rulebase = "pre-rulebase" } }
     rules = [
       {
+        name                  = "allow-gre-management"
+        source_zones          = [var.item.wan_zone]
+        destination_zones     = [var.item.mgmt_zone]
+        source_addresses      = var.item.gre_endpoints
+        destination_addresses = var.item.gre_endpoints
+        applications          = ["gre"]
+        services              = ["application-default"]
+        action                = "allow"
+        log_end               = true
+      },
+      {
         name                  = "allow-tcp-22"
-        source_zones          = [var.item.lan_zone, var.item.wan_zone]
-        destination_zones     = [var.item.lan_zone, var.item.wan_zone]
+        source_zones          = [var.item.mgmt_zone]
+        destination_zones     = [var.item.mgmt_zone]
         source_addresses      = [module.address_groups.names.site_all_mgmt]
         destination_addresses = [module.address_groups.names.site_all_mgmt]
         applications          = ["any"]

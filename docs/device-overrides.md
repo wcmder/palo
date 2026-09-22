@@ -123,3 +123,11 @@ honors `skip_verify_certificate` from the environment's `palo.json`.
 
 - [PAN-OS configuration API](https://docs.paloaltonetworks.com/ngfw/api/pan-os-xml-api-request-types-and-actions/configuration-api)
 - [API authentication](https://docs.paloaltonetworks.com/ngfw/api/api-authentication-and-security)
+
+## GRE variables
+
+The override helper also accepts `tunnel_ip`, `gre_local_ip`,
+`spoke_a_tunnel_ip`, and `spoke_b_tunnel_ip`.
+
+Tunnel interface addresses require prefixes. GRE source addresses require bare
+IPv4 addresses. See [GRE setup](gre.md) for per-device assignments.

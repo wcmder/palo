@@ -2,6 +2,30 @@ mock_provider "panos" {}
 
 variables {
   templates = {
+    spoke = {
+      name             = "test-spoke-gre"
+      description      = "Test spoke"
+      tunnel_interface = "tunnel.100"
+      var = {
+        hub_wan_ip   = "10.0.3.2"
+        tunnel_ip    = "172.16.101.2/30"
+        gre_local_ip = "192.0.2.2"
+      }
+    }
+    hub = {
+      name              = "test-hub-gre"
+      description       = "Test hub"
+      spoke_a_interface = "tunnel.101"
+      spoke_b_interface = "tunnel.102"
+      var = {
+        hub_wan_ip        = "10.0.3.2"
+        spoke_a_wan_ip    = "10.0.1.2"
+        spoke_b_wan_ip    = "10.0.2.2"
+        spoke_a_tunnel_ip = "172.16.101.1/30"
+        spoke_b_tunnel_ip = "172.16.102.1/30"
+      }
+    }
+
     common = {
       name = "spoke-network"
 
@@ -27,15 +51,24 @@ variables {
 
     }
   }
-  template_stacks = { spoke = {
-    name        = "spoke-stack"
-    description = "Test stack"
-    templates   = ["common"]
-    serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+  template_stacks = {
+    hub = {
+      name        = "test-hub-stack"
+      description = "Test hub"
+      templates   = ["hub", "common"]
+      serials     = ["HUB_TEST_SERIAL"]
+    }
+    spoke = {
+      name        = "spoke-stack"
+      description = "Test stack"
+      templates   = ["spoke", "common"]
+      serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
   } }
 
 
   policies = { common = {
+    mgmt_zone              = "mgmt"
+    gre_endpoints          = ["192.0.2.2", "198.51.100.2"]
     device_group           = "parent"
     lan_zone               = "lan"
     wan_zone               = "wan"
@@ -72,12 +105,12 @@ run "independent_policy_and_template_membership" {
     templates = {
       spoke = {
         templates = ["test-network", "shared-common"]
-        stack     = "test-stack"
+        name      = "test-stack"
         serials   = ["A", "B"]
       }
       hub = {
         templates = ["hub-network", "shared-common"]
-        stack     = "hub-stack"
+        name      = "hub-stack"
         serials   = ["H"]
       }
     }
@@ -171,11 +204,18 @@ run "reject_blank_serial" {
   command = plan
   variables {
     device_groups = { parent = { device_group = "parent", serials = [] } }
-    template_stacks = { spoke = {
-      name        = "test-stack"
-      description = "Test stack"
-      templates   = ["common"]
-      serials     = [""]
+    template_stacks = {
+      hub = {
+        name        = "test-hub-stack"
+        description = "Test hub"
+        templates   = ["hub", "common"]
+        serials     = []
+      }
+      spoke = {
+        name        = "test-stack"
+        description = "Test stack"
+        templates   = ["common"]
+        serials     = [""]
     } }
   }
   expect_failures = [var.template_stacks]
@@ -187,8 +227,8 @@ run "shared_actions_template_only" {
   variables {
     device_groups = {}
     templates = {
-      common = { templates = ["network"], stack = "network-stack", serials = ["A"] }
-      unused = { templates = ["unused"], stack = "unused-stack", serials = [] }
+      common = { templates = ["network"], name = "network-stack", serials = ["A"] }
+      unused = { templates = ["unused"], name = "unused-stack", serials = [] }
     }
   }
   assert {

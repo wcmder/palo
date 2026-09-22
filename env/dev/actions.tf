@@ -2,11 +2,7 @@
 module "deployment" {
   source        = "../../stacks/modules/panos/operations/commit_push"
   device_groups = var.device_groups
-  templates = { for key, item in local.template_stacks : key => {
-    templates = item.templates
-    stack     = item.name
-    serials   = item.serials
-  } }
+  templates     = local.template_stacks
 }
 
 # Apply candidate configuration and any device overrides before committing.

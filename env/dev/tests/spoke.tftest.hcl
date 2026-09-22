@@ -225,7 +225,7 @@ run "shared_stack_explicit_variables" {
     error_message = "Unassigned template variables must pass through as None without appending a prefix."
   }
   assert {
-    condition     = length(output.names.templates) == 1
+    condition     = output.names.template == var.item.name
     error_message = "Network configuration must create one reusable template."
   }
 }

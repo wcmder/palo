@@ -50,7 +50,7 @@ module "first" {
     description = "Common plus specific"
     templates = [
       module.specific.names.template,
-      module.common.names.templates.template
+      module.common.names.template
     ]
     serials = ["serial-a"]
   }
@@ -61,7 +61,7 @@ module "second" {
   item = {
     name        = "test-second"
     description = "Common only"
-    templates   = [module.common.names.templates.template]
+    templates   = [module.common.names.template]
     serials     = ["serial-b"]
   }
 }

@@ -94,6 +94,39 @@ class OverridesTest(unittest.TestCase):
         self.assertEqual(api.stack.findtext(".//entry[@name='$mgmt_ip']/type/ip-netmask"), '10.1.10.2/24')
         self.assertEqual(ov.preview(api, devices), [])
 
+    def test_gre_variable_validation(self):
+        values = {
+            'tunnel_ip': '172.16.101.2/30',
+            'gre_local_ip': '10.0.1.2',
+            'spoke_a_tunnel_ip': '172.16.101.1/30',
+            'spoke_b_tunnel_ip': '172.16.102.1/30',
+        }
+        device = copy.deepcopy(DEVICE)
+        device['var'] = values
+        self.assertEqual(self.load({'paa': device})['paa']['var'], values)
+        for field, value in [
+            ('tunnel_ip', '172.16.101.2'),
+            ('gre_local_ip', '10.0.1.2/24'),
+        ]:
+            bad = copy.deepcopy(device)
+            bad['var'][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.load({'paa': bad})
+
+    def test_gre_override_apply(self):
+        device = copy.deepcopy(DEVICE)
+        device['var'] = {'tunnel_ip': '172.16.101.2/30'}
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$tunnel_ip"><type><ip-netmask>None</ip-netmask>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+            self.assertEqual(ov.preview(api, {'paa': device}), [])
+
     def test_duplicate_json_keys(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate'):
             json.loads('{"a": 1, "a": 2}', object_pairs_hook=ov.unique_object)

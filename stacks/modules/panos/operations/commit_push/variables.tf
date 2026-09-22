@@ -5,7 +5,7 @@ variable "device_groups" {
 }
 
 variable "templates" {
-  description = "Stack targets with ordered templates, stack name and serial assignments."
+  description = "Stack definitions with name, ordered template names and serials."
   type        = any
   default     = {}
 }

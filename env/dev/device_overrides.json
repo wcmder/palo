@@ -6,7 +6,8 @@
       "wan_ip": "10.0.1.2/24",
       "lan_ip": "10.1.10.2/24",
       "mgmt_ip": "10.1.20.2/24",
-      "default_gateway": "10.0.1.1"
+      "default_gateway": "10.0.1.1",
+      "gre_local_ip": "10.0.1.2"
     }
   },
   "pab": {
@@ -16,7 +17,8 @@
       "wan_ip": "10.0.2.2/24",
       "lan_ip": "10.2.10.2/24",
       "mgmt_ip": "10.2.20.2/24",
-      "default_gateway": "10.0.2.1"
+      "default_gateway": "10.0.2.1",
+      "gre_local_ip": "10.0.2.2"
     }
   },
   "pac": {

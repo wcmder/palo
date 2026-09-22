@@ -10,7 +10,7 @@ locals {
       device_group   = group.device_group
       device_groups  = compact([try(group.parent, null), group.device_group])
       templates      = template.templates
-      template_stack = template.stack
+      template_stack = template.name
       serials        = sort(tolist(setintersection(toset(try(group.serials, [])), toset(template.serials))))
     } if length(setintersection(toset(try(group.serials, [])), toset(template.serials))) > 0
   }]...)
@@ -19,9 +19,9 @@ locals {
 action "panos_push_to_devices" "templates" {
   for_each = local.template_push_items
   config {
-    description           = "Push template stack ${each.value.stack}"
+    description           = "Push template stack ${each.value.name}"
     type                  = "template_stack"
-    name                  = each.value.stack
+    name                  = each.value.name
     devices               = each.value.serials
     force_template_values = false
   }

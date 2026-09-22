@@ -9,7 +9,11 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-FIELDS = {'wan_ip', 'lan_ip', 'mgmt_ip', 'default_gateway'}
+HOST_FIELDS = {'default_gateway', 'gre_local_ip'}
+FIELDS = HOST_FIELDS | {
+    'wan_ip', 'lan_ip', 'mgmt_ip', 'tunnel_ip',
+    'spoke_a_tunnel_ip', 'spoke_b_tunnel_ip',
+}
 
 
 def unique_object(pairs):
@@ -45,21 +49,22 @@ def load_devices(path, selected=None):
         seen.add(item['serial'])
         values = item['var']
         if not isinstance(values, dict) or not values or set(values) - FIELDS:
-            raise ValueError(name + ': var supports wan_ip, lan_ip, mgmt_ip and default_gateway only.')
+            raise ValueError(name + ': unsupported variable; allowed: ' +
+                             ', '.join(sorted(FIELDS)))
         for field, value in values.items():
             if value is None:  # Explicit reset to inheritance.
                 continue
             try:
                 if not isinstance(value, str):
                     raise ValueError()
-                if field == 'default_gateway':
+                if field in HOST_FIELDS:
                     ipaddress.IPv4Address(value)
                 else:
                     if '/' not in value:
                         raise ValueError()
                     ipaddress.IPv4Interface(value)
             except ValueError:
-                raise ValueError(name + ': ' + field + ' requires IPv4' + (' address.' if field == 'default_gateway' else ' address/prefix.')) from None
+                raise ValueError(name + ': ' + field + ' requires IPv4' + (' address.' if field in HOST_FIELDS else ' address/prefix.')) from None
         wan, gateway = values.get('wan_ip'), values.get('default_gateway')
         if wan is not None and gateway is not None:
             interface = ipaddress.IPv4Interface(wan)

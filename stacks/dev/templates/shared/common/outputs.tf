@@ -2,7 +2,7 @@ output "names" {
   value = {
     interface_management_profiles = module.interface_management_profiles.names
     subinterfaces                 = module.subinterfaces.names
-    templates                     = module.templates.names
+    template                      = module.templates.names.template
     interfaces                    = module.interfaces.names
     variables                     = module.variables.names
   }

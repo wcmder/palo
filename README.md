@@ -45,8 +45,10 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   │   └── hub/             Future hub policies for child groups
 │   │   ├── templates/
 │   │   │   ├── shared/common/   Shared network and settings template
-│   │   │   └── spoke/
-│   │   │       └── stacks/     Ordered template membership and devices
+│   │   │   ├── spoke/
+│   │   │   │   ├── network/   Spoke tunnel template and GRE configuration
+│   │   │   │   └── stacks/    Ordered template membership and devices
+│   │   │   └── hub/network/   Hub tunnel template and GRE configuration
 │   │   └── hub_template/        Placeholder for distinct hub networking
 │   └── modules/
 │       └── panos/
@@ -546,7 +548,8 @@ time. Implement a separate hub module when its resource structure differs.
 Template definitions and stack assignments are separate:
 
 - `templates.common` defines one shared network and settings template.
-- `template_stacks.spoke` defines stack membership and firewall serials.
+- `templates.spoke` and `templates.hub` define role-specific GRE networking.
+- `template_stacks.spoke` and `.hub` define membership and firewall serials.
 
 The common template contains interfaces, variables, routers, routes, zones,
 and their profiles. Add future shared settings directly to this template.
@@ -567,8 +570,9 @@ priority order, highest first. The root resolves these keys through module
 outputs. Use `["common"]` for a common-only stack, or add specific templates
 in the desired order. Declare an additional explicit root stack call to create
 another stack referencing the same common templates; do not recreate them.
-A future hub stack can use `["common"]` and add a hub-specific
-template ahead of common when needed.
+The current spoke stack uses `["spoke", "common"]`; the hub stack uses
+`["hub", "common"]`. Their GRE bindings live in the respective role modules
+and reference inherited interfaces through stack-scoped resources.
 
 `stacks/dev/templates/shared/common` owns the shared template, and
 `stacks/dev/templates/spoke/stacks` owns stack creation. Each call accepts one
@@ -721,17 +725,13 @@ palo dev push-all
 
 All environments share the actions and target selection in
 `stacks/modules/panos/operations/commit_push`. Each root needs only this wiring
-in `actions.tf` (plus any desired command comments):
+in `actions.tf`, using the stack inputs assembled in `locals.tf`:
 
 ```hcl
 module "deployment" {
   source        = "../../stacks/modules/panos/operations/commit_push"
   device_groups = var.device_groups
-  templates = { for key, item in local.template_stacks : key => {
-    templates = item.templates
-    stack = item.name
-    serials = item.serials
-  } }
+  templates     = local.template_stacks
 }
 ```
 
@@ -826,8 +826,8 @@ combined `commit_and_push` action also retains its scoped partial commit.
 Shared zone protection settings live in `env/dev/locals.tf`. Select them with
 `zone_protection_profile_set = "standard"` in a template entry in
 `templates.auto.tfvars`. The root resolves that name and passes
-`local.templates.common` to the shared network template module; tfvars cannot reference
-locals directly. The `wan` and `lan` entries create separate profiles and attach
+the selected profiles to the common template module in `main.tf`; tfvars
+cannot reference locals directly. The `wan` and `lan` entries create separate profiles and attach
 them to their respective zones through `network.zone_protection_profile`. The
 reusable `network/zone_protection_profile` module supports multiple profiles and
 returns a `names` map. The set selector and both profile entries
@@ -879,7 +879,7 @@ routers. Supply `mgmt_ip` and `lan_ip` as complete address/prefix strings or
 `"None"`. The WAN default route remains in the data router; the management
 router has no static routes configured.
 
-The dev root creates one shared common template and one stack. Add explicit
+The dev root creates common, spoke and hub templates with two stacks. Add
 root template/stack calls and corresponding input wiring for more targets.
 `policies.common` is one object (no `parent` wrapper). State moves for the
 previous dev addresses are in `env/dev/moved.tf`; review a fresh plan before
@@ -908,3 +908,13 @@ applying.
 
 [interface-mgmt]:
   https://docs.paloaltonetworks.com/ngfw/networking/configure-interfaces/use-interface-management-profiles-to-restrict-access
+
+## Management GRE hub and spokes
+
+PA-A and PA-B each use one tunnel to PA-C. PA-C has two tunnel interfaces,
+with both ends' tunnel interfaces in the management virtual router and zone.
+Outer GRE packets use the WAN interface in the data virtual router.
+
+See [GRE configuration and required overrides](docs/gre.md) before deploying.
+Tunnel addresses are unassigned template variables until set. Management
+routing through GRE will be added later using BGP.

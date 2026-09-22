@@ -2,6 +2,30 @@ mock_provider "panos" {}
 
 variables {
   templates = {
+    spoke = {
+      name             = "test-spoke-gre"
+      description      = "Test spoke"
+      tunnel_interface = "tunnel.100"
+      var = {
+        hub_wan_ip   = "10.0.3.2"
+        tunnel_ip    = "172.16.101.2/30"
+        gre_local_ip = "192.0.2.2"
+      }
+    }
+    hub = {
+      name              = "test-hub-gre"
+      description       = "Test hub"
+      spoke_a_interface = "tunnel.101"
+      spoke_b_interface = "tunnel.102"
+      var = {
+        hub_wan_ip        = "10.0.3.2"
+        spoke_a_wan_ip    = "10.0.1.2"
+        spoke_b_wan_ip    = "10.0.2.2"
+        spoke_a_tunnel_ip = "172.16.101.1/30"
+        spoke_b_tunnel_ip = "172.16.102.1/30"
+      }
+    }
+
     common = {
       name = "spoke-network"
 
@@ -27,11 +51,18 @@ variables {
 
     }
   }
-  template_stacks = { spoke = {
-    name        = "spoke-stack"
-    description = "Test stack"
-    templates   = ["common"]
-    serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+  template_stacks = {
+    hub = {
+      name        = "test-hub-stack"
+      description = "Test hub"
+      templates   = ["hub", "common"]
+      serials     = ["HUB_TEST_SERIAL"]
+    }
+    spoke = {
+      name        = "spoke-stack"
+      description = "Test stack"
+      templates   = ["spoke", "common"]
+      serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
   } }
 
 
@@ -42,9 +73,10 @@ run "dev_zone_protection" {
   command = apply
   assert {
     condition = (
-      module.common_template.names.templates.template == "spoke-network" &&
+      module.common_template.names.template == "spoke-network" &&
       module.spoke_stack.templates == tolist([
-        module.common_template.names.templates.template
+        module.spoke_template.names.template,
+        module.common_template.names.template
       ])
     )
     error_message = "The stack must reference the shared common template."
@@ -54,9 +86,15 @@ run "dev_zone_protection" {
       module.common_template.names.interface_management_profiles == {
         wan = "wan-ping", lan = "lan-ping", mgmt = "mgmt-ping"
       } &&
-      local.templates.common.interface_management_profiles.wan.ping &&
-      local.templates.common.interface_management_profiles.lan.ping &&
-      local.templates.common.interface_management_profiles.mgmt.ping
+      local.interface_management_profiles[
+        var.templates.common.interface_management_profile_set
+      ].wan.ping &&
+      local.interface_management_profiles[
+        var.templates.common.interface_management_profile_set
+      ].lan.ping &&
+      local.interface_management_profiles[
+        var.templates.common.interface_management_profile_set
+      ].mgmt.ping
     )
     error_message = "Root inputs must resolve the shared ping-only profile set."
   }

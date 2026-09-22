@@ -5,7 +5,7 @@ run "reuse_common_with_optional_specific_template" {
   module { source = "./tests/fixtures/layered_templates" }
   assert {
     condition = (
-      length(module.common.names.templates) == 1 &&
+      module.common.names.template == "test-common" &&
       module.first.templates == tolist(["test-specific", "test-common"]) &&
       module.second.templates == tolist(["test-common"])
     )
