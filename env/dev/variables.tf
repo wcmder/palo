@@ -1,13 +1,18 @@
 variable "device_groups" {
-  description = "Device groups keyed by Panorama name. parent=null means Shared; serials assign firewalls independently of templates. Supports one parent tier and child groups."
+  description = "Groups with explicit device_group names, parents and serial assignments."
   type        = any
   default     = {}
   validation {
     condition = alltrue([for name, group in var.device_groups :
       try(group.parent, null) == null ? true : try(
-        group.parent != name &&
-        contains(keys(var.device_groups), group.parent) &&
-        try(var.device_groups[group.parent].parent, null) == null,
+        group.parent != group.device_group &&
+        contains([for item in values(var.device_groups) :
+          item.device_group
+        ], group.parent) &&
+        alltrue([for item in values(var.device_groups) :
+          try(item.parent, null) == null
+          if item.device_group == group.parent
+        ]),
         false
       )
     ])

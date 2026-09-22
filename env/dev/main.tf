@@ -1,8 +1,14 @@
 module "device_groups" {
   source = "../../stacks/dev/device_groups"
-  items = { for name, group in var.device_groups : name => merge(group, {
-    device_group = name
-  }) }
+  items  = var.device_groups
+}
+
+# Common policies use explicit tfvars inputs, independent of network templates.
+module "common_policies" {
+  source = "../../stacks/dev/policies/common"
+  item   = var.policies.common
+
+  depends_on = [module.device_groups]
 }
 
 module "common_template" {
@@ -13,12 +19,4 @@ module "common_template" {
 module "spoke_stack" {
   source = "../../stacks/dev/templates/spoke/stacks"
   item   = local.template_stacks.spoke
-}
-
-# Common policies use explicit tfvars inputs, independent of network templates.
-module "common_policies" {
-  source = "../../stacks/dev/policies/common"
-  item = merge(var.policies.common, {
-    device_group = module.device_groups.names[var.policies.common.device_group]
-  })
 }

@@ -49,10 +49,25 @@ run "independent_policy_and_template_membership" {
   module { source = "../../stacks/modules/panos/operations/commit_push" }
   variables {
     device_groups = {
-      parent_a   = { serials = [] }
-      parent_b   = { parent = null, serials = [] }
-      branches_a = { parent = "parent_a", serials = ["A", "H"] }
-      branches_b = { parent = "parent_b", serials = ["B"] }
+      parent_a = {
+        device_group = "parent_a"
+        serials      = []
+      }
+      parent_b = {
+        device_group = "parent_b"
+        parent       = null
+        serials      = []
+      }
+      branches_a = {
+        device_group = "branch-production"
+        parent       = "parent_a"
+        serials      = ["A", "H"]
+      }
+      branches_b = {
+        device_group = "branches_b"
+        parent       = "parent_b"
+        serials      = ["B"]
+      }
     }
     templates = {
       spoke = {
@@ -101,7 +116,7 @@ run "independent_policy_and_template_membership" {
 
 
   assert {
-    condition     = output.deployment_items["branches_a/spoke"].device_groups == tolist(["parent_a", "branches_a"])
+    condition     = output.deployment_items["branches_a/spoke"].device_groups == tolist(["parent_a", "branch-production"])
     error_message = "Scoped commits must include the inherited parent policy."
   }
 }
@@ -110,7 +125,7 @@ run "policy_push_without_templates" {
   command = plan
   module { source = "../../stacks/modules/panos/operations/commit_push" }
   variables {
-    device_groups = { branch = { serials = ["A"] }, unused = { serials = [] } }
+    device_groups = { branch = { device_group = "branch", serials = ["A"] }, unused = { device_group = "unused", serials = [] } }
     templates     = {}
   }
   assert {
@@ -122,7 +137,7 @@ run "policy_push_without_templates" {
 run "reject_missing_parent" {
   command = plan
   variables {
-    device_groups = { parent = { serials = [] }, bad = { parent = "missing", serials = [] } }
+    device_groups = { parent = { device_group = "parent", serials = [] }, bad = { device_group = "bad", parent = "missing", serials = [] } }
 
   }
   expect_failures = [var.device_groups]
@@ -132,9 +147,20 @@ run "reject_hierarchy_cycle" {
   command = plan
   variables {
     device_groups = {
-      parent = { serials = [] }
-      a      = { parent = "b", serials = [] }
-      b      = { parent = "a", serials = [] }
+      parent = {
+        device_group = "parent"
+        serials      = []
+      }
+      a = {
+        device_group = "a"
+        parent       = "b"
+        serials      = []
+      }
+      b = {
+        device_group = "b"
+        parent       = "a"
+        serials      = []
+      }
     }
 
   }
@@ -144,7 +170,7 @@ run "reject_hierarchy_cycle" {
 run "reject_blank_serial" {
   command = plan
   variables {
-    device_groups = { parent = { serials = [] } }
+    device_groups = { parent = { device_group = "parent", serials = [] } }
     template_stacks = { spoke = {
       name        = "test-stack"
       description = "Test stack"

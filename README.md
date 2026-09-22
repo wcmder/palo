@@ -83,12 +83,16 @@ module "addresses" {
     lan = {
       name       = "branch-lan"
       ip_netmask = "192.0.2.0/24"
-      location   = { device_group = { name = "dev-branch01" } }
+      location = {
+        device_group = { name = "dev-branch01" }
+      }
     }
     server = {
       name       = "branch-server"
       ip_netmask = "198.51.100.10/32"
-      location   = { device_group = { name = "dev-branch01" } }
+      location = {
+        device_group = { name = "dev-branch01" }
+      }
     }
   }
 }
@@ -107,9 +111,6 @@ One-time setup from the workspace root:
 ```sh
 python3 -m venv scripts/venv
 scripts/venv/bin/python3 -m pip install -e .
-cp env/dev/device_groups.auto.tfvars.example env/dev/device_groups.auto.tfvars
-cp env/dev/templates.auto.tfvars.example env/dev/templates.auto.tfvars
-cp env/dev/policies.auto.tfvars.example env/dev/policies.auto.tfvars
 ```
 
 Python requirements are declared in `pyproject.toml`:
@@ -439,7 +440,8 @@ or saved plans. No launcher changes are required.
 
 ## Independent policy and network inputs
 
-`device_groups` defines device groups by name, their `parent`, and firewall
+`device_groups` uses logical keys and explicit `device_group` names,
+`parent` names, and firewall
 `serials`. `templates` defines network templates/stacks and their independent
 `serials`. A firewall belongs directly to one device group and one template
 stack. A parent provides inherited policy to its children; do not repeat child
@@ -447,11 +449,31 @@ serials on the parent.
 
 ```hcl
 device_groups = {
-  parent_a   = { parent = null, serials = [] }
-  parent_b   = { parent = null, serials = [] }
-  branches_a = { parent = "parent_a", serials = ["PA_A_SERIAL"] }
-  hubs_a     = { parent = "parent_a", serials = ["HUB_A_SERIAL"] }
-  branches_b = { parent = "parent_b", serials = ["PA_B_SERIAL"] }
+  parent_a = {
+    device_group = "parent_a"
+    parent = null
+    serials = []
+  }
+  parent_b = {
+    device_group = "parent_b"
+    parent = null
+    serials = []
+  }
+  branches_a = {
+    device_group = "branches_a"
+    parent = "parent_a"
+    serials = ["PA_A_SERIAL"]
+  }
+  hubs_a = {
+    device_group = "hubs_a"
+    parent = "parent_a"
+    serials = ["HUB_A_SERIAL"]
+  }
+  branches_b = {
+    device_group = "branches_b"
+    parent = "parent_b"
+    serials = ["PA_B_SERIAL"]
+  }
 }
 ```
 
@@ -470,10 +492,7 @@ Environment inputs are split into automatically loaded files:
 | `templates.auto.tfvars` | `templates`, `template_stacks` |
 | `policies.auto.tfvars` | `policies` |
 
-Each has a tracked `.example` file in `env/dev`; actual values remain
-gitignored. The examples cover three parent groups sharing a spoke network and a
-separate hub network. Existing dev values are preserved in the corresponding
-input files. Terraform automatically loads these files from the selected
+Edit the input files directly in `env/dev` for your deployment. Terraform automatically loads these files from the selected
 environment root, so `palo dev plan`, `apply`, and `push-all` need no extra
 flags. Keep each root variable in one file: repeated map definitions replace
 rather than merge values. Do not also define these variables in a leftover
@@ -607,9 +626,8 @@ template variables. `dev` selects `env/dev`. This is a Python CLI command that
 uses the Panorama XML API; it is separate from Terraform plan/apply.
 
 The desired overrides come from **`env/dev/device_overrides.json`**, which you
-create and edit. Start with
-[`device_overrides.json.example`](env/dev/device_overrides.json.example),
-replacing the example serial, stack name and addresses with your own values:
+create and edit. Use the following structure, replacing the example serial,
+stack name and addresses with your own values:
 
 ```json
 {

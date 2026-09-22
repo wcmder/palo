@@ -8,8 +8,7 @@ Terraform manages the shared device group, template, stack, interfaces,
 and device assignments. The `palo` XML API helper manages the individual
 firewall values that appear in **Panorama > Managed Devices > Summary > Variables**.
 
-Create `env/dev/device_overrides.json` using
-[`device_overrides.json.example`](../env/dev/device_overrides.json.example):
+Create `env/dev/device_overrides.json` using the following structure:
 
 ```json
 {

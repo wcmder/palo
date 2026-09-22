@@ -7,8 +7,8 @@ locals {
   # Each push targets only the intersection of a device group and template stack.
   deployment_items = merge({}, [for group_name, group in var.device_groups : {
     for template_key, template in var.templates : "${group_name}/${template_key}" => {
-      device_group   = group_name
-      device_groups  = compact([try(group.parent, null), group_name])
+      device_group   = group.device_group
+      device_groups  = compact([try(group.parent, null), group.device_group])
       templates      = template.templates
       template_stack = template.stack
       serials        = sort(tolist(setintersection(toset(try(group.serials, [])), toset(template.serials))))
@@ -32,7 +32,7 @@ action "panos_push_to_devices" "policies" {
   config {
     description      = "Push policies for device group ${each.key}"
     type             = "device_group"
-    name             = each.key
+    name             = each.value.device_group
     devices          = each.value.serials
     include_template = false
   }

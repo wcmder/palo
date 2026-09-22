@@ -1,10 +1,12 @@
 # Policy membership is independent of network template-stack membership.
 device_groups = {
   parent = {
-    serials = []
+    device_group = "parent"
+    serials      = []
   }
   spoke = {
-    parent  = "parent"
-    serials = ["007954000920842"]
+    device_group = "spoke"
+    parent       = "parent"
+    serials      = ["007954000920842"]
   }
 }

@@ -19,7 +19,8 @@ values. Read this file before making changes and preserve unrelated user edits.
   template-stack names, interface names, VLAN tags, zone names, virtual-router
   names, profile names, addresses, prefix lengths, device assignments, and
   policy
-  settings. Update matching `.example` files when the input structure changes.
+  settings. Maintain inputs directly in `env/dev/`; do not add duplicate
+  `.example` files there. Keep documentation examples aligned with inputs.
 - Names and values in example files are illustrative. Do not turn them into
   project requirements, hardcoded module values, validation allowlists, or
   required naming conventions. Validate required fields and actual constraints,
@@ -87,9 +88,12 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Do not hide fixed role definitions in flattened loops, numeric lists, or
   tag-based conditionals. Comprehensions are appropriate for genuinely
   input-driven collections and output maps.
-- Reference module outputs for dependencies and memberships. Avoid
-  reconstructing
-  another module's resource name where its `names` output is available.
+- Declare `device_group` explicitly in each root device-group entry; map keys
+  are logical identifiers. Pass the map directly without injecting names.
+- Pass names already supplied by root tfvars directly. Do not merge an object
+  solely to replace a configured name with an identical module output.
+- Use explicit `depends_on` when direct inputs need creation ordering. Use
+  `names` outputs when resolving logical keys or derived memberships.
 - Use stable logical keys rather than mutable deployment values as resource
   instance keys.
 - Pass declared profile and policy settings directly. Omit unused optional
