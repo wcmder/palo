@@ -11,6 +11,26 @@ module "templates" {
 module "variables" {
   source = "../../../../modules/panos/panorama/template_variable"
   items = {
+    local_bgp_asn = {
+      name     = "$local_bgp_asn"
+      location = { template = { name = module.templates.names.template } }
+      type     = { as_number = var.network.local_bgp_asn }
+    }
+    bgp_router_id = {
+      name     = "$bgp_router_id"
+      location = { template = { name = module.templates.names.template } }
+      type     = { ip_netmask = var.network.bgp_router_id }
+    }
+    remote_bgp_asn = {
+      name     = "$remote_bgp_asn"
+      location = { template = { name = module.templates.names.template } }
+      type     = { as_number = var.network.remote_bgp_asn }
+    }
+    remote_bgp_peer_ip = {
+      name     = "$remote_bgp_peer_ip"
+      location = { template = { name = module.templates.names.template } }
+      type     = { ip_netmask = var.network.remote_bgp_peer_ip }
+    }
     tunnel_ip = {
       name     = "$tunnel_ip"
       location = { template = { name = module.templates.names.template } }
@@ -194,6 +214,63 @@ module "routers" {
         module.subinterfaces.names.mgmt,
         module.tunnel_interfaces.names.hub,
       ]
+      protocol = {
+        redist_profile = [{
+          name     = "management-connected"
+          priority = 10
+          action   = { redist = {} }
+          filter = {
+            type      = ["connect"]
+            interface = [module.subinterfaces.names.mgmt]
+          }
+        }]
+        bgp = {
+          enable               = true
+          install_route        = true
+          reject_default_route = true
+          router_id            = module.variables.names.bgp_router_id
+          local_as             = module.variables.names.local_bgp_asn
+          auth_profile = [
+            {
+              name   = "hub-auth"
+              secret = var.network.bgp_password
+            },
+          ]
+          peer_group = [
+            {
+              name   = "hub"
+              enable = true
+              type = { ebgp = {
+                export_nexthop    = "use-self"
+                import_nexthop    = "original"
+                remove_private_as = false
+              } }
+              peer = [{
+                name    = "hub"
+                enable  = true
+                peer_as = module.variables.names.remote_bgp_asn
+                local_address = {
+                  interface = module.tunnel_interfaces.names.hub
+                  ip        = module.variables.names.tunnel_ip
+                }
+                peer_address = {
+                  ip = module.variables.names.remote_bgp_peer_ip
+                }
+                connection_options = {
+                  authentication = "hub-auth"
+                }
+              }]
+            },
+          ]
+          redist_rules = [{
+            name                      = "management-connected"
+            enable                    = true
+            address_family_identifier = "ipv4"
+            route_table               = "unicast"
+            set_origin                = "igp"
+          }]
+        }
+      }
     }
     # Existing routers must be imported before Terraform manages membership.
     # Changing the name of a router already in state is not an adoption.

@@ -14,3 +14,11 @@ output "locations" {
     key => resource.location
   }
 }
+
+output "routing" {
+  description = "Routing protocols for tests; includes authentication secrets."
+  sensitive   = true
+  value = {
+    for key, resource in panos_virtual_router.this : key => resource.protocol
+  }
+}

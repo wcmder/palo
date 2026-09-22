@@ -651,7 +651,8 @@ stack name and addresses with your own values:
 `firewall_a` is a local selection key for `--device`. `serial` identifies the
 firewall, and `template_stack` must match its existing Panorama stack name (the
 configured `template_stacks.spoke.name` value in this example). The device must
-already be assigned to that stack, and the referenced IP Netmask variables must
+already be assigned to that stack, and the referenced IP Netmask or AS Number
+variables must
 exist in its templates. JSON keys omit the `$`: `lan_ip` updates `$lan_ip`. Add
 more device entries to give firewalls sharing one template different values.
 
@@ -912,4 +913,5 @@ Outer GRE packets use the WAN interface in the data virtual router.
 
 See [GRE configuration and required overrides](docs/gre.md) before deploying.
 Tunnel addresses are unassigned template variables until set. Management
-routing through GRE will be added later using BGP.
+routing through GRE uses BGP on each role's management router.
+See [BGP over GRE](docs/gre.md#bgp-over-gre) for inputs and device overrides.

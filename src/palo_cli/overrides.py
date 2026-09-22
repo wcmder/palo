@@ -9,8 +9,15 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-HOST_FIELDS = {'default_gateway'}
-FIELDS = HOST_FIELDS | {
+ASN_FIELDS = {
+    'local_bgp_asn', 'remote_bgp_asn',
+    'spoke_a_remote_bgp_asn', 'spoke_b_remote_bgp_asn',
+}
+HOST_FIELDS = {
+    'default_gateway', 'bgp_router_id', 'remote_bgp_peer_ip',
+    'spoke_a_remote_bgp_peer_ip', 'spoke_b_remote_bgp_peer_ip',
+}
+FIELDS = HOST_FIELDS | ASN_FIELDS | {
     'wan_ip', 'lan_ip', 'mgmt_ip', 'tunnel_ip',
     'spoke_a_tunnel_ip', 'spoke_b_tunnel_ip',
 }
@@ -57,14 +64,26 @@ def load_devices(path, selected=None):
             try:
                 if not isinstance(value, str):
                     raise ValueError()
-                if field in HOST_FIELDS:
+                if field in ASN_FIELDS:
+                    if not re.fullmatch(r'[0-9]+', value):
+                        raise ValueError()
+                    if not 1 <= int(value) <= 4294967294:
+                        raise ValueError()
+                elif field in HOST_FIELDS:
                     ipaddress.IPv4Address(value)
                 else:
                     if '/' not in value:
                         raise ValueError()
                     ipaddress.IPv4Interface(value)
             except ValueError:
-                raise ValueError(name + ': ' + field + ' requires IPv4' + (' address.' if field in HOST_FIELDS else ' address/prefix.')) from None
+                expected = 'IPv4 address/prefix'
+                if field in ASN_FIELDS:
+                    expected = 'an AS number string from 1 to 4294967294'
+                elif field in HOST_FIELDS:
+                    expected = 'a bare IPv4 address'
+                raise ValueError(
+                    name + ': ' + field + ' requires ' + expected + '.'
+                ) from None
         wan, gateway = values.get('wan_ip'), values.get('default_gateway')
         if wan is not None and gateway is not None:
             interface = ipaddress.IPv4Interface(wan)
@@ -87,11 +106,15 @@ def variable_path(item, field):
     return stack_path(item['template_stack']) + "/devices/entry[@name='%s']/variable/entry[@name='$%s']" % (item['serial'], field)
 
 
-def entry_value(entry):
+def variable_type(field):
+    return 'as-number' if field in ASN_FIELDS else 'ip-netmask'
+
+
+def entry_value(entry, expected_type='ip-netmask'):
     if entry is None:
         return None
     kind = entry.find('type')
-    if kind is None or len(kind) != 1 or kind[0].tag != 'ip-netmask':
+    if kind is None or len(kind) != 1 or kind[0].tag != expected_type:
         raise ValueError('Existing override has an unexpected variable type; no automatic conversion is supported.')
     return kind[0].text or ''
 
@@ -123,9 +146,10 @@ def preview(api, devices):
             definition = definitions.get(variable)
             if definition is None:
                 raise ValueError(name + ': missing inherited variable ' + variable)
-            entry_value(definition)  # Require an IP Netmask definition.
+            kind = variable_type(field)
+            entry_value(definition, kind)
             current = next((e for e in device.findall('./variable/entry') if e.get('name') == variable), None)
-            before = entry_value(current)
+            before = entry_value(current, kind)
             if before != desired:
                 changes.append({'device': name, 'item': item, 'field': field, 'before': before, 'after': desired})
     return changes
@@ -136,7 +160,10 @@ def apply_changes(api, changes):
     for change in changes:
         path = variable_path(change['item'], change['field'])
         # Stop if another administrator changed a value since preview.
-        current = entry_value(api.get(path).find('./result/entry'))
+        expected_type = variable_type(change['field'])
+        current = entry_value(
+            api.get(path).find('./result/entry'), expected_type
+        )
         if current != change['before']:
             raise ValueError('Override changed since preview; stop and run overrides plan again. Earlier writes, if any, remain in candidate configuration.')
         try:
@@ -144,9 +171,11 @@ def apply_changes(api, changes):
                 api.request(type='config', action='delete', xpath=path)
             else:
                 kind = ET.Element('type')
-                ET.SubElement(kind, 'ip-netmask').text = change['after']
+                ET.SubElement(kind, expected_type).text = change['after']
                 api.set(path, ET.tostring(kind, encoding='unicode'))
-            actual = entry_value(api.get(path).find('./result/entry'))
+            actual = entry_value(
+                api.get(path).find('./result/entry'), expected_type
+            )
             if actual != change['after']:
                 raise APIError('Override read-back did not match the requested value.')
         except APIError:
@@ -156,7 +185,13 @@ def apply_changes(api, changes):
 
 
 def parser():
-    result = argparse.ArgumentParser(prog='palo <environment> overrides', description='Manage per-device Panorama IP variable overrides. No commit or push.')
+    result = argparse.ArgumentParser(
+        prog='palo <environment> overrides',
+        description=(
+            'Manage per-device Panorama IP and ASN variable overrides. '
+            'No commit or push.'
+        ),
+    )
     result.add_argument('operation', choices=['plan', 'apply'])
     result.add_argument('--file', default='device_overrides.json', help='JSON file relative to the selected environment (or absolute path).')
     result.add_argument('--device', help='Select one device key, such as paa.')

@@ -9,6 +9,11 @@ variables {
       name        = "test-spoke-gre"
       description = "Test spoke"
       var = {
+        local_bgp_asn         = "None"
+        bgp_router_id         = "None"
+        remote_bgp_asn        = "None"
+        remote_bgp_peer_ip    = "None"
+        bgp_password          = "example-bgp-password"
         tunnel_interface      = "tunnel.100"
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
@@ -35,25 +40,33 @@ variables {
       name        = "test-hub-gre"
       description = "Test hub"
       var = {
-        spoke_a_interface     = "tunnel.101"
-        spoke_b_interface     = "tunnel.102"
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "192.0.2.2/30"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "spoke-vr"
-        spoke_a_wan_ip        = "10.0.1.2"
-        spoke_b_wan_ip        = "10.0.2.2"
-        spoke_a_tunnel_ip     = "172.16.101.1/30"
-        spoke_b_tunnel_ip     = "172.16.102.1/30"
+        local_bgp_asn              = "None"
+        bgp_router_id              = "None"
+        spoke_a_remote_bgp_asn     = "None"
+        spoke_a_remote_bgp_peer_ip = "10.255.13.1"
+        spoke_a_bgp_password       = "example-bgp-password"
+        spoke_b_remote_bgp_asn     = "None"
+        spoke_b_remote_bgp_peer_ip = "10.255.23.2"
+        spoke_b_bgp_password       = "example-bgp-password"
+        spoke_a_interface          = "tunnel.101"
+        spoke_b_interface          = "tunnel.102"
+        wan_interface              = "ethernet1/1"
+        lan_interface              = "ethernet1/2"
+        lan_subinterface_tag       = 20
+        mgmt_subinterface_tag      = 10
+        mgmt_zone                  = "mgmt"
+        mgmt_virtual_router        = "mgmt"
+        wan_zone                   = "wan"
+        lan_zone                   = "lan"
+        wan_ip                     = "192.0.2.2/30"
+        lan_ip                     = "198.51.100.1/24"
+        mgmt_ip                    = "203.0.113.1/24"
+        default_gateway            = "192.0.2.1"
+        data_virtual_router        = "spoke-vr"
+        spoke_a_wan_ip             = "10.0.1.2"
+        spoke_b_wan_ip             = "10.0.2.2"
+        spoke_a_tunnel_ip          = "172.16.101.1/30"
+        spoke_b_tunnel_ip          = "172.16.102.1/30"
       }
     }
 
@@ -127,6 +140,11 @@ run "zone_profile_attachments" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"

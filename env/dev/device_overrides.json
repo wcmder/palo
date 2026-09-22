@@ -7,7 +7,11 @@
       "lan_ip": "10.1.10.2/24",
       "mgmt_ip": "10.1.20.2/24",
       "default_gateway": "10.0.1.1",
-      "tunnel_ip": "10.255.13.1/24"
+      "tunnel_ip": "10.255.13.1/24",
+      "local_bgp_asn": "65001",
+      "remote_bgp_asn": "65003",
+      "bgp_router_id": "10.255.13.1",
+      "remote_bgp_peer_ip": "10.255.13.3"
     }
   },
   "pab": {
@@ -18,7 +22,11 @@
       "lan_ip": "10.2.10.2/24",
       "mgmt_ip": "10.2.20.2/24",
       "default_gateway": "10.0.2.1",
-      "tunnel_ip": "10.255.23.2/24"
+      "tunnel_ip": "10.255.23.2/24",
+      "local_bgp_asn": "65002",
+      "remote_bgp_asn": "65003",
+      "bgp_router_id": "10.255.23.2",
+      "remote_bgp_peer_ip": "10.255.23.3"
     }
   },
   "pac": {
@@ -30,7 +38,13 @@
       "mgmt_ip": "10.3.20.2/24",
       "default_gateway": "10.0.3.1",
       "spoke_a_tunnel_ip": "10.255.13.3/24",
-      "spoke_b_tunnel_ip": "10.255.23.3/24"
+      "spoke_b_tunnel_ip": "10.255.23.3/24",
+      "local_bgp_asn": "65003",
+      "spoke_a_remote_bgp_asn": "65001",
+      "spoke_b_remote_bgp_asn": "65002",
+      "bgp_router_id": "10.255.13.3",
+      "spoke_a_remote_bgp_peer_ip": "10.255.13.1/24",
+      "spoke_b_remote_bgp_peer_ip": "10.255.23.2/24"
     }
   }
 }

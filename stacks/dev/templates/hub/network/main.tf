@@ -11,6 +11,40 @@ module "templates" {
 module "variables" {
   source = "../../../../modules/panos/panorama/template_variable"
   items = {
+    local_bgp_asn = {
+      name     = "$local_bgp_asn"
+      location = { template = { name = module.templates.names.template } }
+      type     = { as_number = var.network.local_bgp_asn }
+    }
+    bgp_router_id = {
+      name     = "$bgp_router_id"
+      location = { template = { name = module.templates.names.template } }
+      type     = { ip_netmask = var.network.bgp_router_id }
+    }
+    spoke_a_remote_bgp_asn = {
+      name     = "$spoke_a_remote_bgp_asn"
+      location = { template = { name = module.templates.names.template } }
+      type     = { as_number = var.network.spoke_a_remote_bgp_asn }
+    }
+    spoke_a_remote_bgp_peer_ip = {
+      name     = "$spoke_a_remote_bgp_peer_ip"
+      location = { template = { name = module.templates.names.template } }
+      type = {
+        ip_netmask = var.network.spoke_a_remote_bgp_peer_ip
+      }
+    }
+    spoke_b_remote_bgp_asn = {
+      name     = "$spoke_b_remote_bgp_asn"
+      location = { template = { name = module.templates.names.template } }
+      type     = { as_number = var.network.spoke_b_remote_bgp_asn }
+    }
+    spoke_b_remote_bgp_peer_ip = {
+      name     = "$spoke_b_remote_bgp_peer_ip"
+      location = { template = { name = module.templates.names.template } }
+      type = {
+        ip_netmask = var.network.spoke_b_remote_bgp_peer_ip
+      }
+    }
     spoke_a_tunnel_ip = {
       name     = "$spoke_a_tunnel_ip"
       location = { template = { name = module.templates.names.template } }
@@ -201,6 +235,84 @@ module "routers" {
         module.tunnel_interfaces.names.spoke_a,
         module.tunnel_interfaces.names.spoke_b,
       ]
+      protocol = {
+        redist_profile = [{
+          name     = "management-connected"
+          priority = 10
+          action   = { redist = {} }
+          filter = {
+            type      = ["connect"]
+            interface = [module.subinterfaces.names.mgmt]
+          }
+        }]
+        bgp = {
+          enable               = true
+          install_route        = true
+          reject_default_route = true
+          router_id            = module.variables.names.bgp_router_id
+          local_as             = module.variables.names.local_bgp_asn
+          auth_profile = [
+            {
+              name   = "spoke_a-auth"
+              secret = var.network.spoke_a_bgp_password
+            },
+            {
+              name   = "spoke_b-auth"
+              secret = var.network.spoke_b_bgp_password
+            },
+          ]
+          peer_group = [
+            {
+              name   = "spoke"
+              enable = true
+              type = { ebgp = {
+                export_nexthop    = "use-self"
+                import_nexthop    = "original"
+                remove_private_as = false
+              } }
+              peer = [
+                {
+                  name    = "spoke_a"
+                  enable  = true
+                  peer_as = module.variables.names.spoke_a_remote_bgp_asn
+                  local_address = {
+                    interface = module.tunnel_interfaces.names.spoke_a
+                    ip        = module.variables.names.spoke_a_tunnel_ip
+                  }
+                  peer_address = {
+                    ip = module.variables.names.spoke_a_remote_bgp_peer_ip
+                  }
+                  connection_options = {
+                    authentication = "spoke_a-auth"
+                  }
+                },
+                {
+                  name    = "spoke_b"
+                  enable  = true
+                  peer_as = module.variables.names.spoke_b_remote_bgp_asn
+                  local_address = {
+                    interface = module.tunnel_interfaces.names.spoke_b
+                    ip        = module.variables.names.spoke_b_tunnel_ip
+                  }
+                  peer_address = {
+                    ip = module.variables.names.spoke_b_remote_bgp_peer_ip
+                  }
+                  connection_options = {
+                    authentication = "spoke_b-auth"
+                  }
+                }
+              ]
+            }
+          ]
+          redist_rules = [{
+            name                      = "management-connected"
+            enable                    = true
+            address_family_identifier = "ipv4"
+            route_table               = "unicast"
+            set_origin                = "igp"
+          }]
+        }
+      }
     }
     # Existing routers must be imported before Terraform manages membership.
     # Changing the name of a router already in state is not an adoption.

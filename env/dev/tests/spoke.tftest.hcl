@@ -25,6 +25,11 @@ run "spoke" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"
@@ -108,7 +113,7 @@ run "spoke" {
   assert {
     condition = (
       length(output.names.interfaces) ==
-      2 && length(output.names.variables) == 5 &&
+      2 && length(output.names.variables) == 9 &&
       output.variable_values["$lan_ip"] == "198.51.100.1/24" &&
       module.routes.locations.default.template.name == var.item.name &&
       module.subinterfaces.names.mgmt == format(
@@ -125,6 +130,11 @@ run "alternate_template" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/3"
       lan_interface         = "ethernet1/4"
@@ -199,7 +209,7 @@ run "alternate_template" {
   assert {
     condition = (
       length(output.names.interfaces) ==
-      2 && length(output.names.variables) == 5 &&
+      2 && length(output.names.variables) == 9 &&
       output.variable_values["$lan_ip"] == "203.0.113.1/25" &&
       module.routes.locations.default.template.name == var.item.name &&
       module.subinterfaces.names.mgmt == format(
@@ -216,6 +226,11 @@ run "role_explicit_variables" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"
@@ -273,6 +288,11 @@ run "reject_same_interface" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/1"
@@ -315,6 +335,11 @@ run "gateway_validation_deferred_to_provider" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"
@@ -360,6 +385,11 @@ run "explicit_values_and_extra_fields" {
   module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
     network = {
+      local_bgp_asn         = "None"
+      bgp_router_id         = "None"
+      remote_bgp_asn        = "None"
+      remote_bgp_peer_ip    = "None"
+      bgp_password          = "example-bgp-password"
       tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"

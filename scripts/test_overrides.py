@@ -94,6 +94,55 @@ class OverridesTest(unittest.TestCase):
         self.assertEqual(api.stack.findtext(".//entry[@name='$mgmt_ip']/type/ip-netmask"), '10.1.10.2/24')
         self.assertEqual(ov.preview(api, devices), [])
 
+    def test_bgp_variable_validation(self):
+        device = copy.deepcopy(DEVICE)
+        device['var'] = {
+            'local_bgp_asn': '65001',
+            'remote_bgp_asn': '65003',
+            'spoke_a_remote_bgp_asn': '65001',
+            'spoke_b_remote_bgp_asn': '65002',
+            'bgp_router_id': '10.255.13.1',
+            'remote_bgp_peer_ip': '10.255.13.3',
+        }
+        self.assertEqual(self.load({'paa': device})['paa'], device)
+        for field, value in [
+            ('local_bgp_asn', '0'),
+            ('local_bgp_asn', '4294967295'),
+            ('local_bgp_asn', '1.10'),
+            ('local_bgp_asn', 'None'),
+            ('local_bgp_asn', 65001),
+            ('bgp_router_id', '10.255.13.1/24'),
+            ('remote_bgp_peer_ip', '10.255.13.3/24'),
+        ]:
+            bad = copy.deepcopy(device)
+            bad['var'][field] = value
+            with self.subTest(field=field, value=value):
+                with self.assertRaises(ValueError):
+                    self.load({'paa': bad})
+
+    def test_asn_apply_reset_and_type_mismatch(self):
+        device = copy.deepcopy(DEVICE)
+        device['var'] = {'local_bgp_asn': '65001'}
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$local_bgp_asn"><type><as-number>None</as-number>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+            self.assertIn('<as-number>65001</as-number>', api.writes[0][1])
+            self.assertEqual(ov.preview(api, {'paa': device}), [])
+            device['var']['local_bgp_asn'] = None
+            changes = ov.preview(api, {'paa': device})
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+            self.assertEqual(ov.preview(api, {'paa': device}), [])
+        wrong = template.replace('as-number', 'ip-netmask')
+        with patch(__name__ + '.TEMPLATE', wrong):
+            with self.assertRaises(ValueError):
+                ov.preview(api, {'paa': device})
+
     def test_gre_variable_validation(self):
         values = {
             'tunnel_ip': '172.16.101.2/30',

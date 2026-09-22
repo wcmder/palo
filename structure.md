@@ -81,6 +81,16 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Keep every network reference within its owning role template. GRE sources
   reference that template's WAN interface address variable. Management routers
   and zones include the management subinterface and the role's tunnels.
+- Configure BGP on the role's existing management router. Keep peer definitions
+  explicit in `main.tf` and deployment-specific BGP inputs in the role's
+  network object. Reuse tunnel address variables for BGP local addresses.
+  Match tfvars field names to template variable keys and names, excluding the
+  Panorama `$` prefix. Use explicit peer-prefixed fields for multiple peers;
+  do not introduce a nested peer map that requires renaming those fields.
+- Expose per-device ASNs as AS Number variables and peer/router-ID addresses as
+  IP Netmask variables. Keep authentication secrets in Terraform inputs when
+  the installed provider does not support a matching template-variable type.
+  Do not publish secret values through non-sensitive outputs.
 - Do not create stack-scoped network overrides or duplicate the same router
   across common and role templates. Reuse Terraform profile definitions and
   resource wrappers, while creating their Panorama objects in each role.

@@ -103,7 +103,8 @@ CIDR notation; the gateway is an IPv4 address. When both WAN IP and gateway
 are provided, the helper checks they are different addresses in the same subnet.
 
 The helper validates every selected target before writing, checks that the
-serial belongs to the stack and the variable is defined as IP Netmask, then
+serial belongs to the stack and the variable has the expected IP Netmask or
+AS Number type, then
 updates only the selected variable entries. It rechecks each old value before
 writing and reads back each result. This is not an atomic transaction or a
 Panorama configuration lock. If a write or verification fails, earlier writes
@@ -136,3 +137,16 @@ and `spoke_b_tunnel_ip`.
 
 Tunnel interface addresses require prefixes. GRE sources use the WAN
 interface's `wan_ip` address/prefix override. See [GRE setup](gre.md) for per-device assignments.
+
+## BGP variables
+
+The helper supports decimal-string ASNs through `local_bgp_asn`,
+`remote_bgp_asn`, `spoke_a_remote_bgp_asn`, and `spoke_b_remote_bgp_asn`.
+It writes these with Panorama's `as-number` type and rejects a mismatched
+inherited variable type. Values must be strings from `"1"` to `"4294967294"`.
+
+`bgp_router_id`, `remote_bgp_peer_ip`, `spoke_a_remote_bgp_peer_ip`, and
+`spoke_b_remote_bgp_peer_ip` require bare IPv4 addresses. The tunnel variables
+still require prefixes and supply BGP's local interface addresses directly.
+`bgp_password` belongs in the Terraform network inputs, not this JSON file.
+See [BGP over GRE](gre.md#bgp-over-gre) for the peer layout and ASN assignments.
