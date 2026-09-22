@@ -5,19 +5,6 @@ output "names" {
   }
 }
 
-output "name_id" {
-  description = "Profile name to import identifier."
-  value = {
-    for key, p in panos_interface_management_profile.this :
-    p.name => base64encode(jsonencode({
-      name = p.name
-      location = { for scope, config in p.location : scope => {
-        for attribute, value in config : attribute => value if value != null
-      } if config != null }
-    }))
-  }
-}
-
 output "settings" {
   description = "Management services and permitted sources by role."
   value = {
@@ -35,5 +22,11 @@ output "settings" {
       userid_syslog_listener_udp = p.userid_syslog_listener_udp
       permitted_ips              = p.permitted_ips
     }
+  }
+}
+
+output "locations" {
+  value = {
+    for key, resource in panos_interface_management_profile.this : key => resource.location
   }
 }

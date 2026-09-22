@@ -43,7 +43,10 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   │   ├── common/          Common parent Security, NAT and default rules
 │   │   │   ├── branch/          Future branch policies for child groups
 │   │   │   └── hub/             Future hub policies for child groups
-│   │   ├── spoke_template/      Templates, stacks and WAN/LAN networking
+│   │   ├── templates/
+│   │   │   ├── shared/common/   Shared network and settings template
+│   │   │   └── spoke/
+│   │   │       └── stacks/     Ordered template membership and devices
 │   │   └── hub_template/        Placeholder for distinct hub networking
 │   └── modules/
 │       └── panos/
@@ -63,16 +66,15 @@ lives in the environment root.
 
 Every feature module accepts `items`, a typed map keyed by stable logical keys,
 and uses `for_each` to create multiple resources. An empty map creates none.
-Each item supplies a location. Modules expose:
+Each item supplies a location. Reusable modules retain their `names` output
+as a stable contract, even without a current caller. Other outputs are kept
+when used by callers, tests, or documented workflows:
 
-- `name_id`: resource name → base64 JSON import identifier.
 - `names`: logical input key → resource name, for wiring dependencies.
+- Focused settings outputs where callers or tests need them.
 
-PAN-OS v2 resources do not expose `.id`. These identifiers use the provider's
-import format; they are not device UUIDs. Whole security/NAT policies have no
-container name: their `name_id` keys are input keys, and their identifiers
-include the ordered rule names. Their `names` values are lists of rule names.
-Composed stacks group `name_id` maps by resource type/site to avoid collisions.
+Security and NAT `names` outputs map logical keys to ordered rule names.
+Import identifiers are not exposed as module outputs.
 
 ```hcl
 module "addresses" {
@@ -91,7 +93,6 @@ module "addresses" {
   }
 }
 # module.addresses.names["lan"]
-# module.addresses.name_id["branch-lan"]
 ```
 
 Names must be unique within a feature-module call. Use separate calls for the
@@ -466,7 +467,7 @@ Environment inputs are split into automatically loaded files:
 | File | Root variable |
 | --- | --- |
 | `device_groups.auto.tfvars` | `device_groups` |
-| `templates.auto.tfvars` | `templates` |
+| `templates.auto.tfvars` | `templates`, `template_stacks` |
 | `policies.auto.tfvars` | `policies` |
 
 Each has a tracked `.example` file in `env/dev`; actual values remain
@@ -481,12 +482,15 @@ rather than merge values. Do not also define these variables in a leftover
 
 Composition variables use `type = any`; resource modules retain typed inputs.
 Each declared stack call accepts one required, non-null `item` object. Dev
-declares `spoke_template` and `common_policies`; unused stacks have no root
+declares one common template, a spoke stack, and common policies;
+unused stacks have no root
 call. Feature module calls use one `items` map; only resource wrappers use
 `for_each`. The template stack explicitly defines interfaces, subinterfaces,
 zones, variables, routers and a default route. Set network values in
-`templates.spoke.var`. To add a DMZ, add its values there and explicit resource
-entries in spoke_template/main.tf; there is no need to duplicate the input
+`templates.common.var`. To add a DMZ, add its values there and explicit resource
+entries in templates/shared/common/main.tf; there is no need to
+duplicate
+the input
 schema across parent modules. Supply WAN, LAN and management addresses as
 complete strings, such as `"192.0.2.2/30"`, or `"None"` for an unassigned
 template variable. Values pass through directly; separate prefix fields are no
@@ -517,6 +521,45 @@ device-group/policy-type/rulebase scope; combine its ordered rules there.
 layout can reuse the spoke stack through a new explicit root call with complete
 inputs. Update the root template-key validation and action inputs at the same
 time. Implement a separate hub module when its resource structure differs.
+
+## Common templates and spoke stacks
+
+Template definitions and stack assignments are separate:
+
+- `templates.common` defines one shared network and settings template.
+- `template_stacks.spoke` defines stack membership and firewall serials.
+
+The common template contains interfaces, variables, routers, routes, zones,
+and their profiles. Add future shared settings directly to this template.
+
+```hcl
+template_stacks = {
+  spoke = {
+    name = "example-stack"
+    description = "Common and spoke configuration"
+    templates = ["common"]
+    serials = ["EXAMPLE_SERIAL"]
+  }
+}
+```
+
+Names and serials above are examples. `templates` lists root template keys in
+priority order, highest first. The root resolves these keys through module
+outputs. Use `["common"]` for a common-only stack, or add specific templates
+in the desired order. Declare an additional explicit root stack call to create
+another stack referencing the same common templates; do not recreate them.
+A future hub stack can use `["common"]` and add a hub-specific
+template ahead of common when needed.
+
+`stacks/dev/templates/shared/common` owns the shared template, and
+`stacks/dev/templates/spoke/stacks` owns stack creation. Each call accepts one
+required object; module calls have no `for_each` or null guards. The existing
+network template and stack keep their Panorama names. `env/dev/moved.tf` moves
+the former nested stack module and renames the network module to
+`module.common_template` without recreating its resources.
+
+Commit targets include every template referenced by a stack. After changing a
+shared template, push every affected stack to distribute the shared changes.
 
 ## Ping to interface addresses
 
@@ -585,7 +628,7 @@ replacing the example serial, stack name and addresses with your own values:
 
 `firewall_a` is a local selection key for `--device`. `serial` identifies the
 firewall, and `template_stack` must match its existing Panorama stack name (the
-configured `templates.spoke.stack` value in this example). The device must
+configured `template_stacks.spoke.name` value in this example). The device must
 already be assigned to that stack, and the referenced IP Netmask variables must
 exist in its templates. JSON keys omit the `$`: `lan_ip` updates `$lan_ip`. Add
 more device entries to give firewalls sharing one template different values.
@@ -662,7 +705,11 @@ in `actions.tf` (plus any desired command comments):
 module "deployment" {
   source        = "../../stacks/modules/panos/operations/commit_push"
   device_groups = var.device_groups
-  templates     = var.templates
+  templates = { for key, item in local.template_stacks : key => {
+    templates = item.templates
+    stack = item.name
+    serials = item.serials
+  } }
 }
 ```
 
@@ -712,8 +759,9 @@ deliberately. Normal apply does not invoke commit/push actions.
 
 The root `moved.tf` migrates existing policy/template resource addresses. Run
 `palo dev plan` and review the moves before applying; do not apply an old saved
-plan. No state migration occurs until you apply. Root outputs remain commented
-out; modules expose `name_id` maps.
+plan. No state migration occurs until you apply. Unused root outputs are
+removed; reusable modules retain `names` and other outputs needed by callers,
+tests, or documented workflows.
 
 ## Offline checks
 
@@ -756,11 +804,11 @@ combined `commit_and_push` action also retains its scoped partial commit.
 Shared zone protection settings live in `env/dev/locals.tf`. Select them with
 `zone_protection_profile_set = "standard"` in a template entry in
 `templates.auto.tfvars`. The root resolves that name and passes
-`local.templates.spoke` to the spoke template module; tfvars cannot reference
+`local.templates.common` to the shared network template module; tfvars cannot reference
 locals directly. The `wan` and `lan` entries create separate profiles and attach
 them to their respective zones through `network.zone_protection_profile`. The
 reusable `network/zone_protection_profile` module supports multiple profiles and
-returns `name_id` and `names` maps. The set selector and both profile entries
+returns a `names` map. The set selector and both profile entries
 are required. Profile names are explicit in the shared WAN/LAN definitions in
 `locals.tf`: `wan-protection` and `lan-protection`. Each selected template
 creates its own profiles with those names in its template scope.
@@ -809,8 +857,8 @@ routers. Supply `mgmt_ip` and `lan_ip` as complete address/prefix strings or
 `"None"`. The WAN default route remains in the data router; the management
 router has no static routes configured.
 
-The dev root currently declares only the `spoke` template role. Add a separate
-explicit root stack call and complete input to introduce another role.
+The dev root creates one shared common template and one stack. Add explicit
+root template/stack calls and corresponding input wiring for more targets.
 `policies.common` is one object (no `parent` wrapper). State moves for the
 previous dev addresses are in `env/dev/moved.tf`; review a fresh plan before
 applying.

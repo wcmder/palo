@@ -1,9 +1,9 @@
 # Documentation-only addresses: replace with your actual network values.
 # Network template/stack settings and firewall assignments.
 templates = {
-  spoke = {
-    name        = "spoke-network"
-    stack       = "spoke-stack"
+  common = {
+    name = "spoke-network"
+
     description = "Terraform-managed spoke"
     # Shared settings in locals.tf; select the WAN/LAN protection profiles.
     zone_protection_profile_set      = "standard"
@@ -23,6 +23,15 @@ templates = {
       default_gateway       = "192.0.2.1"
       data_virtual_router   = "spoke-vr"
     }
-    serials = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+
+  }
+}
+
+template_stacks = {
+  spoke = {
+    name        = "spoke-stack"
+    description = "Terraform-managed spoke"
+    templates   = ["common"]
+    serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
   }
 }

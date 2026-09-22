@@ -2,9 +2,9 @@ mock_provider "panos" {}
 
 variables {
   templates = {
-    spoke = {
-      name        = "spoke-network"
-      stack       = "spoke-stack"
+    common = {
+      name = "spoke-network"
+
       description = "Terraform-managed spoke"
       # Shared settings in locals.tf; select the WAN/LAN protection profiles.
       zone_protection_profile_set      = "standard"
@@ -24,9 +24,16 @@ variables {
         default_gateway       = "192.0.2.1"
         data_virtual_router   = "spoke-vr"
       }
-      serials = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+
     }
   }
+  template_stacks = { spoke = {
+    name        = "spoke-stack"
+    description = "Test stack"
+    templates   = ["common"]
+    serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+  } }
+
 
   policies = { common = {
     device_group           = "parent"
@@ -47,54 +54,32 @@ run "independent_policy_and_template_membership" {
       branches_a = { parent = "parent_a", serials = ["A", "H"] }
       branches_b = { parent = "parent_b", serials = ["B"] }
     }
-    templates = { spoke = {
-      name                             = "test-network"
-      stack                            = "test-stack"
-      description                      = "Test network"
-      serials                          = ["A", "B"]
-      interface_management_profile_set = "ping_only"
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "192.0.2.2/30"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "test-vr"
+    templates = {
+      spoke = {
+        templates = ["test-network", "shared-common"]
+        stack     = "test-stack"
+        serials   = ["A", "B"]
       }
-      }, hub = {
-      name                             = "hub-network"
-      stack                            = "hub-stack"
-      description                      = "Test network"
-      serials                          = ["H"]
-      interface_management_profile_set = "ping_only"
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "192.0.2.2/30"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "test-vr"
+      hub = {
+        templates = ["hub-network", "shared-common"]
+        stack     = "hub-stack"
+        serials   = ["H"]
       }
-    } }
+    }
   }
 
 
   assert {
-    condition     = keys(output.name_id.push) == ["branches_a/hub", "branches_a/spoke", "branches_b/spoke"]
+    condition = (
+      output.deployment_items["branches_a/spoke"].templates ==
+      ["test-network", "shared-common"] &&
+      output.deployment_items["branches_a/hub"].templates ==
+      ["hub-network", "shared-common"]
+    )
+    error_message = "Commit targets must include every referenced template."
+  }
+  assert {
+    condition     = keys(output.push_targets) == ["branches_a/hub", "branches_a/spoke", "branches_b/spoke"]
     error_message = "Push targets must be policy/template intersections, excluding empty parents."
   }
   assert {
@@ -160,31 +145,14 @@ run "reject_blank_serial" {
   command = plan
   variables {
     device_groups = { parent = { serials = [] } }
-    templates = { spoke = {
-      zone_protection_profile_set      = "standard"
-      name                             = "test-network"
-      stack                            = "test-stack"
-      description                      = "Test network"
-      serials                          = [""]
-      interface_management_profile_set = "ping_only"
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "192.0.2.2/30"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "test-vr"
-      }
+    template_stacks = { spoke = {
+      name        = "test-stack"
+      description = "Test stack"
+      templates   = ["common"]
+      serials     = [""]
     } }
   }
-  expect_failures = [var.templates]
+  expect_failures = [var.template_stacks]
 }
 
 run "shared_actions_template_only" {
@@ -193,12 +161,12 @@ run "shared_actions_template_only" {
   variables {
     device_groups = {}
     templates = {
-      network = { name = "network", stack = "network-stack", serials = ["A"] }
-      unused  = { name = "unused", stack = "unused-stack", serials = [] }
+      common = { templates = ["network"], stack = "network-stack", serials = ["A"] }
+      unused = { templates = ["unused"], stack = "unused-stack", serials = [] }
     }
   }
   assert {
-    condition     = keys(output.name_id.templates) == ["network"] && length(output.name_id.policies) == 0 && length(output.deployment_items) == 0
+    condition     = keys(output.template_push_items) == ["common"] && length(output.policy_push_items) == 0 && length(output.deployment_items) == 0
     error_message = "Template-only actions must exist without device groups and exclude empty assignments."
   }
 }

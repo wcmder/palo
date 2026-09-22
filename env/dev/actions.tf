@@ -2,7 +2,11 @@
 module "deployment" {
   source        = "../../stacks/modules/panos/operations/commit_push"
   device_groups = var.device_groups
-  templates     = var.templates
+  templates = { for key, item in local.template_stacks : key => {
+    templates = item.templates
+    stack     = item.name
+    serials   = item.serials
+  } }
 }
 
 # Apply candidate configuration and any device overrides before committing.
@@ -13,7 +17,7 @@ module "deployment" {
 # .this["group/template"] is a PARTIAL commit scoped to that target's containers.
 # Replace apply with plan in any invocation below to preview it.
 #
-# Template only (var.templates key; requires assigned serials):
+# Template only (var.template_stacks key; requires assigned serials):
 # palo dev apply -invoke='module.deployment.action.panos_push_to_devices.templates["spoke"]'
 # Policy only (var.device_groups key; requires directly assigned serials):
 # palo dev apply -invoke='module.deployment.action.panos_push_to_devices.policies["spoke"]'

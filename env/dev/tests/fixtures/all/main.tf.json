@@ -406,49 +406,49 @@
   },
   "output": {
     "device_group": {
-      "value": "${module.device_group.name_id}"
+      "value": "${module.device_group.names}"
     },
     "template": {
-      "value": "${module.template.name_id}"
+      "value": "${module.template.names}"
     },
     "template_stack": {
-      "value": "${module.template_stack.name_id}"
+      "value": "${module.template_stack.names}"
     },
     "address": {
-      "value": "${module.address.name_id}"
+      "value": "${module.address.names}"
     },
     "address_group": {
-      "value": "${module.address_group.name_id}"
+      "value": "${module.address_group.names}"
     },
     "service": {
-      "value": "${module.service.name_id}"
+      "value": "${module.service.names}"
     },
     "service_group": {
-      "value": "${module.service_group.name_id}"
+      "value": "${module.service_group.names}"
     },
     "administrative_tag": {
-      "value": "${module.administrative_tag.name_id}"
+      "value": "${module.administrative_tag.names}"
     },
     "ethernet_interface": {
-      "value": "${module.ethernet_interface.name_id}"
+      "value": "${module.ethernet_interface.names}"
     },
     "zone": {
-      "value": "${module.zone.name_id}"
+      "value": "${module.zone.names}"
     },
     "virtual_router": {
-      "value": "${module.virtual_router.name_id}"
+      "value": "${module.virtual_router.names}"
     },
     "security_policy": {
-      "value": "${module.security_policy.name_id}"
+      "value": "${module.security_policy.names}"
     },
     "nat_policy": {
-      "value": "${module.nat_policy.name_id}"
+      "value": "${module.nat_policy.names}"
     },
     "template_variable": {
-      "value": "${module.template_variable.name_id}"
+      "value": "${module.template_variable.names}"
     },
     "static_route_ipv4": {
-      "value": "${module.static_route_ipv4.name_id}"
+      "value": "${module.static_route_ipv4.names}"
     }
   }
 }

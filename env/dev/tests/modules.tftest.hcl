@@ -1,110 +1,110 @@
 mock_provider "panos" {}
 
-run "multiple_resources_and_identifiers" {
+run "multiple_resources_and_names" {
   command = apply
   module { source = "./tests/fixtures/all" }
   assert {
     condition     = length(output.device_group) == 2
-    error_message = "device_group must output two identifiers."
+    error_message = "device_group must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.device_group["example-0"])).name == "example-0"
-    error_message = "device_group import identity must preserve the resource name."
+    condition     = output.device_group["item0"] == "example-0"
+    error_message = "device_group names output must preserve the resource name."
   }
   assert {
     condition     = length(output.template) == 2
-    error_message = "template must output two identifiers."
+    error_message = "template must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.template["example-0"])).name == "example-0"
-    error_message = "template import identity must preserve the resource name."
+    condition     = output.template["item0"] == "example-0"
+    error_message = "template names output must preserve the resource name."
   }
   assert {
     condition     = length(output.template_stack) == 2
-    error_message = "template_stack must output two identifiers."
+    error_message = "template_stack must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.template_stack["example-0"])).name == "example-0"
-    error_message = "template_stack import identity must preserve the resource name."
+    condition     = output.template_stack["item0"] == "example-0"
+    error_message = "template_stack names output must preserve the resource name."
   }
   assert {
     condition     = length(output.address) == 2
-    error_message = "address must output two identifiers."
+    error_message = "address must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.address["example-0"])).name == "example-0"
-    error_message = "address import identity must preserve the resource name."
+    condition     = output.address["item0"] == "example-0"
+    error_message = "address names output must preserve the resource name."
   }
   assert {
     condition     = length(output.address_group) == 2
-    error_message = "address_group must output two identifiers."
+    error_message = "address_group must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.address_group["example-0"])).name == "example-0"
-    error_message = "address_group import identity must preserve the resource name."
+    condition     = output.address_group["item0"] == "example-0"
+    error_message = "address_group names output must preserve the resource name."
   }
   assert {
     condition     = length(output.service) == 2
-    error_message = "service must output two identifiers."
+    error_message = "service must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.service["example-0"])).name == "example-0"
-    error_message = "service import identity must preserve the resource name."
+    condition     = output.service["item0"] == "example-0"
+    error_message = "service names output must preserve the resource name."
   }
   assert {
     condition     = length(output.service_group) == 2
-    error_message = "service_group must output two identifiers."
+    error_message = "service_group must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.service_group["example-0"])).name == "example-0"
-    error_message = "service_group import identity must preserve the resource name."
+    condition     = output.service_group["item0"] == "example-0"
+    error_message = "service_group names output must preserve the resource name."
   }
   assert {
     condition     = length(output.administrative_tag) == 2
-    error_message = "administrative_tag must output two identifiers."
+    error_message = "administrative_tag must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.administrative_tag["example-0"])).name == "example-0"
-    error_message = "administrative_tag import identity must preserve the resource name."
+    condition     = output.administrative_tag["item0"] == "example-0"
+    error_message = "administrative_tag names output must preserve the resource name."
   }
   assert {
     condition     = length(output.ethernet_interface) == 2
-    error_message = "ethernet_interface must output two identifiers."
+    error_message = "ethernet_interface must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.ethernet_interface["ethernet1/1"])).name == "ethernet1/1"
-    error_message = "ethernet_interface import identity must preserve the resource name."
+    condition     = output.ethernet_interface["item0"] == "ethernet1/1"
+    error_message = "ethernet_interface names output must preserve the resource name."
   }
   assert {
     condition     = length(output.zone) == 2
-    error_message = "zone must output two identifiers."
+    error_message = "zone must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.zone["example-0"])).name == "example-0"
-    error_message = "zone import identity must preserve the resource name."
+    condition     = output.zone["item0"] == "example-0"
+    error_message = "zone names output must preserve the resource name."
   }
   assert {
     condition     = length(output.virtual_router) == 2
-    error_message = "virtual_router must output two identifiers."
+    error_message = "virtual_router must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.virtual_router["example-0"])).name == "example-0"
-    error_message = "virtual_router import identity must preserve the resource name."
+    condition     = output.virtual_router["item0"] == "example-0"
+    error_message = "virtual_router names output must preserve the resource name."
   }
   assert {
     condition     = length(output.security_policy) == 2
-    error_message = "security_policy must output two identifiers."
+    error_message = "security_policy must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.security_policy["item0"])).names == ["first", "second"]
-    error_message = "security_policy import identity must preserve rule ordering."
+    condition     = output.security_policy["item0"] == ["first", "second"]
+    error_message = "security_policy names output must preserve rule ordering."
   }
   assert {
     condition     = length(output.nat_policy) == 2
-    error_message = "nat_policy must output two identifiers."
+    error_message = "nat_policy must output two names."
   }
   assert {
-    condition     = jsondecode(base64decode(output.nat_policy["item0"])).names == ["first", "second"]
-    error_message = "nat_policy import identity must preserve rule ordering."
+    condition     = output.nat_policy["item0"] == ["first", "second"]
+    error_message = "nat_policy names output must preserve rule ordering."
   }
 }

@@ -920,6 +920,6 @@ variable "items" {
 
   validation {
     condition     = length(distinct([for item in values(var.items) : item.name])) == length(var.items)
-    error_message = "Names must be unique within a module call so name_id keys are unambiguous; use separate module calls for duplicate names in different scopes."
+    error_message = "Names must be unique within a module call to avoid ambiguous resource names; use separate module calls for duplicate names in different scopes."
   }
 }

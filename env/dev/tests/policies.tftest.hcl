@@ -7,15 +7,15 @@ run "parent_nat_and_security" {
     item = { device_group = "parent", lan_zone = "inside", wan_zone = "outside", wan_interface = "ethernet1/3", default_security_rules = [{ name = "intrazone-default", action = "deny", log_end = true }] }
   }
   assert {
-    condition     = length(output.name_id.nat) == 1 && jsondecode(base64decode(output.name_id.nat.common)).location.device_group.name == "parent" && jsondecode(base64decode(output.name_id.nat.common)).location.device_group.rulebase == "pre-rulebase"
+    condition     = length(module.nat.names) == 1 && module.nat.locations.common.device_group.name == "parent" && module.nat.locations.common.device_group.rulebase == "pre-rulebase"
     error_message = "NAT must be installed in the configured parent pre-rulebase."
   }
   assert {
-    condition     = jsondecode(base64decode(output.name_id.security.common)).names == ["allow-lan-wan-tcp-22", "allow-lan-wan-icmp", "deny-other-lan-wan"]
+    condition     = module.security-pre.names.common == ["allow-tcp-22", "allow-icmp"] && module.security-post.names.common == ["default-deny"]
     error_message = "TCP/22 and ICMP allows must precede the LAN-to-WAN deny."
   }
   assert {
-    condition     = jsondecode(base64decode(output.name_id.services["tcp-22"])).location.device_group.name == "parent"
+    condition     = module.services.locations.tcp_22.device_group.name == "parent"
     error_message = "Each service must be scoped to its own parent group."
   }
 }
@@ -33,7 +33,7 @@ run "common_policies_without_templates" {
     }
   }
   assert {
-    condition     = jsondecode(base64decode(output.name_id.nat.common)).location.device_group.name == "parent"
+    condition     = module.nat.locations.common.device_group.name == "parent"
     error_message = "The policy stack must operate independently of any template stack."
   }
 }

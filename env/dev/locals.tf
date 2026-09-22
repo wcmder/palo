@@ -58,12 +58,24 @@ locals {
   }
 
   # tfvars files cannot reference locals directly, so resolve the set here.
-  templates = { for key, item in var.templates : key => merge(item, {
-    zone_protection_profiles = (
-      local.zone_protection_profiles[item.zone_protection_profile_set]
-    )
-    interface_management_profiles = (
-      local.interface_management_profiles[item.interface_management_profile_set]
-    )
-  }) }
+  templates = {
+    common = merge(var.templates.common, {
+      zone_protection_profiles = local.zone_protection_profiles[
+        var.templates.common.zone_protection_profile_set
+      ]
+      interface_management_profiles = local.interface_management_profiles[
+        var.templates.common.interface_management_profile_set
+      ]
+    })
+  }
+
+  # Translate root template keys to names of templates created once above.
+  template_names = {
+    common = module.common_template.names.templates["template"]
+  }
+  template_stacks = {
+    for key, item in var.template_stacks : key => merge(item, {
+      templates = [for key in item.templates : local.template_names[key]]
+    })
+  }
 }

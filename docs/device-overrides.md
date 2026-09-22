@@ -35,11 +35,11 @@ Create `env/dev/device_overrides.json` using
 ```
 
 Replace example serials and addresses. Both serials must already be assigned
-to `spoke-stack` by the Terraform `templates.spoke.serials` list. The shared container names are the key in `device_groups`,
-`templates.spoke.name`, and `templates.spoke.stack`. Template defaults
-are under `templates.spoke.var`; this JSON file still holds per-device values.
-One shared Terraform spoke entry can serve many devices; do not duplicate the template
-and stack for each firewall. The dev's local JSON file was populated from
+to `spoke-stack` by the Terraform `template_stacks.spoke.serials` list. The shared container names are the key in `device_groups`,
+`templates.common.name`, and `template_stacks.spoke.name`. Template defaults
+are under `templates.common.var`; this JSON file still holds per-device values.
+A stack can serve many devices, and multiple stacks can reference the same
+common template. The JSON selects the stack and serial for each override. The dev's local JSON file was populated from
 PA-A's existing GUI overrides; it is ignored by Git.
 
 ## Commands

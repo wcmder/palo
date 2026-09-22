@@ -1,5 +1,5 @@
 variable "item" {
-  description = "Required network template/stack configuration."
+  description = "Required shared network template configuration."
   type        = any
   nullable    = false
 

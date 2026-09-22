@@ -52,6 +52,19 @@ values. Read this file before making changes and preserve unrelated user edits.
 | `src/palo_cli/` | Operational CLI and device variable override support |
 | `docs/` | Workflow and operational documentation |
 
+## Template organization
+
+- `stacks/dev/templates/shared/common/` owns one shared template containing
+  networking and common settings for spoke and future hub stacks.
+- `stacks/dev/templates/spoke/stacks/` creates a stack from an ordered list of
+  existing template names and its own device assignments.
+- Create each template once. Stacks reference its output name and may reuse it
+  across multiple calls. A stack can use common alone or combine it with
+  specific templates; root tfvars defines membership and priority order.
+- Keep template definitions separate from stack/device assignments in root
+  inputs. Keep interface-dependent profiles in the same template as the
+  interfaces and zones that reference them.
+
 ## Explicit module composition
 
 - Put provider resource blocks in reusable modules under
@@ -89,13 +102,19 @@ values. Read this file before making changes and preserve unrelated user edits.
 
 ## Reusable module contract
 
-- Keep `main.tf`, `variables.tf`, `outputs.tf`, and `versions.tf` separate.
+- Keep `main.tf`, `variables.tf`, and `versions.tf` separate. Add `outputs.tf`
+  for the reusable `names` contract or outputs used by callers, tests, or
+  documented operational workflows.
+- Preserve `names` outputs under `stacks/modules/`, even when no current
+  caller uses them. They are part of the reusable module contract.
+- Remove other unused outputs and delete `outputs.tf` when none remain.
+  Do not retain commented-out output blocks.
 - Use a typed `items` map and `for_each = var.items` in the resource wrapper.
   Pass supported provider attributes through without imposing deployment
   choices.
-- Expose `names` keyed by logical input key and `name_id` keyed by resource
-  name.
-  Import identifiers must include the provider's required parent and location.
+- Expose `names` keyed by logical input key in reusable resource modules.
+- Do not expose import-identifier maps as outputs. Test configured names,
+  locations, memberships, and rule settings directly.
 - Stack input objects follow the pass-through `type = any` convention; do not
   duplicate a full root schema in every composition layer.
 - Expose resource maps directly, without an unnecessary outer target key when

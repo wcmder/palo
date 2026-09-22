@@ -16,28 +16,50 @@ variable "device_groups" {
 }
 
 variable "templates" {
-  description = "Required spoke template object passed to the explicit stack call."
+  description = "Shared template definitions, independent of stack membership."
   type        = any
   nullable    = false
   validation {
-    condition     = alltrue([for key in keys(var.templates) : key == "spoke"])
-    error_message = "This root declares only spoke. Add an explicit root stack call before introducing another role."
+    condition = length(distinct([
+      for item in values(var.templates) : item.name
+    ])) == length(var.templates)
+    error_message = "Shared template names must be unique."
+  }
+}
+
+variable "template_stacks" {
+  description = "Stack definitions with ordered template keys and serials."
+  type        = any
+  nullable    = false
+  validation {
+    condition = length(distinct([
+      for item in values(var.template_stacks) : item.name
+    ])) == length(var.template_stacks)
+    error_message = "Template stack names must be unique."
   }
   validation {
-    condition = alltrue([for field in ["name", "stack"] :
-      length(distinct([for item in values(var.templates) : item[field]])) == length(var.templates)
-    ])
-    error_message = "Each template must have a unique name and stack."
-  }
-  validation {
-    condition     = length(distinct(flatten([for item in values(var.templates) : item.serials]))) == length(flatten([for item in values(var.templates) : item.serials]))
+    condition = length(distinct(flatten([
+      for item in values(var.template_stacks) : item.serials
+      ]))) == length(flatten([
+      for item in values(var.template_stacks) : item.serials
+    ]))
     error_message = "A firewall can belong to only one template stack."
   }
   validation {
-    condition = alltrue(flatten([for item in values(var.templates) : [for serial in item.serials :
-      trimspace(serial) != "" && serial == trimspace(serial)
-    ]]))
-    error_message = "Template serials must be non-empty and have no surrounding whitespace."
+    condition = alltrue(flatten([
+      for item in values(var.template_stacks) : [for serial in item.serials :
+        trimspace(serial) != "" && serial == trimspace(serial)
+      ]
+    ]))
+    error_message = "Stack serials must be non-empty with no surrounding space."
+  }
+  validation {
+    condition = alltrue(flatten([
+      for item in values(var.template_stacks) : [for key in item.templates :
+        contains(keys(var.templates), key)
+      ]
+    ]))
+    error_message = "Every stack template key must reference a defined template."
   }
 }
 

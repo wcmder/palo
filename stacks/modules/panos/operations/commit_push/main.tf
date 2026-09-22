@@ -9,7 +9,7 @@ locals {
     for template_key, template in var.templates : "${group_name}/${template_key}" => {
       device_group   = group_name
       device_groups  = compact([try(group.parent, null), group_name])
-      template       = template.name
+      templates      = template.templates
       template_stack = template.stack
       serials        = sort(tolist(setintersection(toset(try(group.serials, [])), toset(template.serials))))
     } if length(setintersection(toset(try(group.serials, [])), toset(template.serials))) > 0
@@ -56,7 +56,7 @@ action "panos_commit" "this" {
   config {
     description     = "Commit target ${each.key}"
     device_groups   = distinct(concat(each.value.device_groups, [each.value.device_group]))
-    templates       = [each.value.template]
+    templates       = each.value.templates
     template_stacks = [each.value.template_stack]
     force           = false
   }
@@ -83,7 +83,7 @@ action "panos_commit" "commit_and_push" {
   config {
     description     = "Commit and push target ${each.key}"
     device_groups   = distinct(concat(each.value.device_groups, [each.value.device_group]))
-    templates       = [each.value.template]
+    templates       = each.value.templates
     template_stacks = [each.value.template_stack]
     force           = false
 

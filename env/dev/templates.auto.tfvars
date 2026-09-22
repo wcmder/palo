@@ -1,9 +1,9 @@
 # Network template/stack settings and firewall assignments.
 templates = {
-  spoke = {
-    name        = "spoke-network"
-    stack       = "spoke-stack"
-    description = "Terraform-managed spoke"
+  common = {
+    name = "common-network"
+
+    description = "Terraform-managed"
 
     # Shared settings in locals.tf
     zone_protection_profile_set      = "standard"
@@ -24,6 +24,15 @@ templates = {
       lan_ip                = "None"
       mgmt_ip               = "None"
     }
-    serials = ["007954000920842"]
+
+  }
+}
+
+template_stacks = {
+  spoke = {
+    name        = "spoke-stack"
+    description = "Terraform-managed"
+    templates   = ["common"]
+    serials     = ["007954000920842"]
   }
 }

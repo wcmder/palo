@@ -8,25 +8,25 @@ run "multiple_variables_and_routes" {
     error_message = "Both new feature modules must create multiple resources."
   }
   assert {
-    condition     = jsondecode(base64decode(output.static_route_ipv4["default"])).virtual_router == "example-vr"
-    error_message = "Route import identities must include their parent virtual router."
+    condition     = output.static_route_ipv4["default"] == "default"
+    error_message = "Route names must retain their logical keys."
   }
   assert {
-    condition     = jsondecode(base64decode(output.template_variable["$wan_ip"])).location.template.name == "example-template"
-    error_message = "Template variable identity must retain its template scope."
+    condition     = output.template_variable["wan"] == "$wan_ip"
+    error_message = "Template variable names must retain their logical keys."
   }
 }
 
 run "spoke" {
   command = apply
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables { item = {
     zone_protection_profiles = {
       wan = { name = "test-wan-protection" }
       lan = { name = "test-lan-protection" }
     }
-    name        = "test-spoke01-network"
-    stack       = "test-spoke01-stack"
+    name = "test-spoke01-network"
+
     description = "Terraform-managed spoke"
     interface_management_profiles = {
       wan  = { name = "wan-ping", ping = true }
@@ -48,11 +48,11 @@ run "spoke" {
       default_gateway       = "192.0.2.1"
       data_virtual_router   = "spoke-vr"
     }
-    serials = ["test-serial-01"]
+
   } }
   assert {
     condition = (
-      length(output.name_id.interface_management_profiles) == 3 &&
+      length(output.names.interface_management_profiles) == 3 &&
       module.interfaces.management_profiles.wan ==
       var.item.interface_management_profiles.wan.name &&
       module.subinterfaces.management_profiles.lan ==
@@ -93,25 +93,25 @@ run "spoke" {
   }
   assert {
     condition = (
-      length(output.name_id.interfaces) == 2 && length(output.name_id.variables) == 4 &&
+      length(output.names.interfaces) == 2 && length(output.names.variables) == 4 &&
       output.variable_values["$lan_ip"] == "198.51.100.1/24" &&
-      jsondecode(base64decode(output.name_id.routes["default"])).location.template.name == var.item.name &&
-      jsondecode(base64decode(output.name_id.subinterfaces["ethernet1/2.10"])).parent == var.item.var.lan_interface
+      module.routes.locations.default.template.name == var.item.name &&
+      module.subinterfaces.names.mgmt == "${var.item.var.lan_interface}.${var.item.var.mgmt_subinterface_tag}"
     )
-    error_message = "Resources, variables and import identifiers must retain their template scope."
+    error_message = "Resource names, variables and routes must follow template inputs."
   }
 }
 
 run "alternate_template" {
   command = apply
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables { item = {
     zone_protection_profiles = {
       wan = { name = "test-wan-protection" }
       lan = { name = "test-lan-protection" }
     }
-    name        = "test-spoke02-network"
-    stack       = "test-spoke02-stack"
+    name = "test-spoke02-network"
+
     description = "Terraform-managed spoke"
     interface_management_profiles = {
       wan  = { name = "external-ping", ping = true }
@@ -133,16 +133,14 @@ run "alternate_template" {
       default_gateway       = "192.0.2.5"
       data_virtual_router   = "spoke-vr"
     }
-    serials = ["test-serial-02"]
+
   } }
   assert {
     condition = (
       module.interfaces.management_profiles.wan == "external-ping" &&
       module.subinterfaces.management_profiles.lan == "internal-ping" &&
       module.subinterfaces.management_profiles.mgmt == "admin-ping" &&
-      jsondecode(base64decode(
-        output.name_id.interface_management_profiles["admin-ping"]
-      )).location.template.name == var.item.name
+      module.interface_management_profiles.locations.mgmt.template.name == var.item.name
     )
     error_message = "Profile names and scope must follow the template input."
   }
@@ -170,26 +168,26 @@ run "alternate_template" {
   }
   assert {
     condition = (
-      length(output.name_id.interfaces) == 2 && length(output.name_id.variables) == 4 &&
+      length(output.names.interfaces) == 2 && length(output.names.variables) == 4 &&
       output.variable_values["$lan_ip"] == "203.0.113.1/25" &&
-      jsondecode(base64decode(output.name_id.routes["default"])).location.template.name == var.item.name &&
-      jsondecode(base64decode(output.name_id.subinterfaces["ethernet1/4.110"])).parent == var.item.var.lan_interface
+      module.routes.locations.default.template.name == var.item.name &&
+      module.subinterfaces.names.mgmt == "${var.item.var.lan_interface}.${var.item.var.mgmt_subinterface_tag}"
     )
-    error_message = "Resources, variables and import identifiers must retain their template scope."
+    error_message = "Resource names, variables and routes must follow template inputs."
   }
 }
 
 run "shared_stack_explicit_variables" {
   command = apply
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables {
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
         lan = { name = "test-lan-protection" }
       }
-      name        = "shared-network"
-      stack       = "shared-stack"
+      name = "shared-network"
+
       description = "Terraform-managed spoke"
       interface_management_profiles = {
         wan  = { name = "wan-ping", ping = true }
@@ -211,7 +209,7 @@ run "shared_stack_explicit_variables" {
         default_gateway       = "None"
         data_virtual_router   = "spoke-vr"
       }
-      serials = ["serial-a", "serial-b"]
+
 
     }
   }
@@ -227,23 +225,23 @@ run "shared_stack_explicit_variables" {
     error_message = "Unassigned template variables must pass through as None without appending a prefix."
   }
   assert {
-    condition     = length(output.name_id.templates) == 1 && length(output.name_id.template_stacks) == 1 && length(var.item.serials) == 2
-    error_message = "Both serials must share one template and stack."
+    condition     = length(output.names.templates) == 1
+    error_message = "Network configuration must create one reusable template."
   }
 }
 
 run "reject_same_interface" {
   command = plan
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables {
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
         lan = { name = "test-lan-protection" }
       }
-      name        = "bad"
-      serials     = []
-      stack       = "bad-stack"
+      name = "bad"
+
+
       description = "Terraform-managed spoke"
       interface_management_profiles = {
         wan  = { name = "wan-ping", ping = true }
@@ -272,16 +270,16 @@ run "reject_same_interface" {
 
 run "gateway_validation_deferred_to_provider" {
   command = plan
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables {
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
         lan = { name = "test-lan-protection" }
       }
-      name        = "bad"
-      serials     = []
-      stack       = "bad-stack"
+      name = "bad"
+
+
       description = "Terraform-managed spoke"
       interface_management_profiles = {
         wan  = { name = "wan-ping", ping = true }
@@ -313,16 +311,16 @@ run "gateway_validation_deferred_to_provider" {
 
 run "explicit_values_and_extra_fields" {
   command = plan
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables {
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
         lan = { name = "test-lan-protection" }
       }
-      name        = "example"
-      serials     = []
-      stack       = "example-stack"
+      name = "example"
+
+
       description = "Terraform-managed spoke"
       interface_management_profiles = {
         wan  = { name = "wan-ping", ping = true }

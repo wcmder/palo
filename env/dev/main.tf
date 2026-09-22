@@ -5,9 +5,14 @@ module "device_groups" {
   }) }
 }
 
-module "spoke_template" {
-  source = "../../stacks/dev/spoke_template"
-  item   = local.templates.spoke
+module "common_template" {
+  source = "../../stacks/dev/templates/shared/common"
+  item   = local.templates.common
+}
+
+module "spoke_stack" {
+  source = "../../stacks/dev/templates/spoke/stacks"
+  item   = local.template_stacks.spoke
 }
 
 # Common policies use explicit tfvars inputs, independent of network templates.

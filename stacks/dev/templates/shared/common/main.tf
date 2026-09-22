@@ -1,5 +1,5 @@
 module "templates" {
-  source = "../../modules/panos/panorama/template"
+  source = "../../../../modules/panos/panorama/template"
   items = { template = {
     name         = var.item.name
     description  = var.item.description
@@ -8,20 +8,10 @@ module "templates" {
   } }
 }
 
-module "template_stacks" {
-  source = "../../modules/panos/panorama/template_stack"
-  items = { template = {
-    name         = var.item.stack
-    description  = var.item.description
-    default_vsys = "vsys1"
-    location     = { panorama = {} }
-    templates    = [module.templates.names["template"]]
-    devices      = [for serial in var.item.serials : { name = serial }]
-  } }
-}
+
 
 module "variables" {
-  source = "../../modules/panos/panorama/template_variable"
+  source = "../../../../modules/panos/panorama/template_variable"
   items = {
     wan_ip = {
       name        = "$wan_ip"
@@ -51,7 +41,7 @@ module "variables" {
 }
 
 module "interface_management_profiles" {
-  source = "../../modules/panos/network/interface_management_profile"
+  source = "../../../../modules/panos/network/interface_management_profile"
   items = {
     wan = merge(var.item.interface_management_profiles.wan, {
       location = { template = { name = module.templates.names["template"] } }
@@ -66,7 +56,7 @@ module "interface_management_profiles" {
 }
 
 module "interfaces" {
-  source = "../../modules/panos/network/ethernet"
+  source = "../../../../modules/panos/network/ethernet"
   items = {
     wan = {
       name    = var.item.var.wan_interface
@@ -95,7 +85,7 @@ module "interfaces" {
 }
 
 module "subinterfaces" {
-  source = "../../modules/panos/network/ethernet_layer3_subinterface"
+  source = "../../../../modules/panos/network/ethernet_layer3_subinterface"
   items = {
     mgmt = {
       name = format(
@@ -138,7 +128,7 @@ module "subinterfaces" {
 
 # WAN and LAN profiles are supplied explicitly by the root configuration.
 module "zone_protection_profiles" {
-  source = "../../modules/panos/network/zone_protection_profile"
+  source = "../../../../modules/panos/network/zone_protection_profile"
   items = {
     wan = merge(var.item.zone_protection_profiles.wan, {
       location = { template = { name = module.templates.names["template"] } }
@@ -150,7 +140,7 @@ module "zone_protection_profiles" {
 }
 
 module "zones" {
-  source = "../../modules/panos/network/zone"
+  source = "../../../../modules/panos/network/zone"
   items = {
     wan = {
       name = var.item.var.wan_zone
@@ -187,7 +177,7 @@ module "zones" {
 
 
 module "routers" {
-  source = "../../modules/panos/network/virtual_router"
+  source = "../../../../modules/panos/network/virtual_router"
   items = {
     mgmt = {
       name = var.item.var.mgmt_virtual_router
@@ -214,7 +204,7 @@ module "routers" {
 }
 
 module "routes" {
-  source = "../../modules/panos/network/static_route_ipv4"
+  source = "../../../../modules/panos/network/static_route_ipv4"
   items = {
     default = {
       name = "default"

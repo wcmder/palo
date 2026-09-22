@@ -2,9 +2,9 @@ mock_provider "panos" {}
 
 variables {
   templates = {
-    spoke = {
-      name        = "spoke-network"
-      stack       = "spoke-stack"
+    common = {
+      name = "spoke-network"
+
       description = "Terraform-managed spoke"
       # Shared settings in locals.tf; select the WAN/LAN protection profiles.
       zone_protection_profile_set      = "standard"
@@ -24,9 +24,16 @@ variables {
         default_gateway       = "192.0.2.1"
         data_virtual_router   = "spoke-vr"
       }
-      serials = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+
     }
   }
+  template_stacks = { spoke = {
+    name        = "spoke-stack"
+    description = "Test stack"
+    templates   = ["common"]
+    serials     = ["PA_A_SERIAL", "PA_B_SERIAL", "PA_C_SERIAL"]
+  } }
+
 
 }
 
@@ -35,28 +42,37 @@ run "dev_zone_protection" {
   command = apply
   assert {
     condition = (
-      module.spoke_template.names.interface_management_profiles == {
+      module.common_template.names.templates.template == "spoke-network" &&
+      module.spoke_stack.templates == tolist([
+        module.common_template.names.templates.template
+      ])
+    )
+    error_message = "The stack must reference the shared common template."
+  }
+  assert {
+    condition = (
+      module.common_template.names.interface_management_profiles == {
         wan = "wan-ping", lan = "lan-ping", mgmt = "mgmt-ping"
       } &&
-      local.templates.spoke.interface_management_profiles.wan.ping &&
-      local.templates.spoke.interface_management_profiles.lan.ping &&
-      local.templates.spoke.interface_management_profiles.mgmt.ping
+      local.templates.common.interface_management_profiles.wan.ping &&
+      local.templates.common.interface_management_profiles.lan.ping &&
+      local.templates.common.interface_management_profiles.mgmt.ping
     )
     error_message = "Root inputs must resolve the shared ping-only profile set."
   }
   assert {
-    condition     = length(module.spoke_template.name_id.zone_protection_profiles) == 2
-    error_message = "The spoke template must create both WAN and LAN protection profiles."
+    condition     = length(module.common_template.zone_protection_locations) == 2
+    error_message = "The common template must create both WAN and LAN protection profiles."
   }
   assert {
-    condition     = jsondecode(base64decode(module.spoke_template.name_id.zone_protection_profiles[local.templates.spoke.zone_protection_profiles.wan.name])).location.template.name == var.templates.spoke.name
+    condition     = module.common_template.zone_protection_locations.wan.template.name == var.templates.common.name
     error_message = "Zone protection profiles must belong to the spoke Panorama template."
   }
 }
 
 run "zone_profile_attachments" {
   command = apply
-  module { source = "../../stacks/dev/spoke_template" }
+  module { source = "../../stacks/dev/templates/shared/common" }
   variables {
     item = {
       name        = "test-network"

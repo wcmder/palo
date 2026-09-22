@@ -39,25 +39,29 @@ provider connection as the configuration resources.
    palo dev apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
    ```
 
-Replace `spoke/spoke` with `<device-group>/<template-key>` for another target. Keep the quoted
+Replace `spoke/spoke` with `<device-group>/<template-key>` for another target.
+Keep the quoted
 addresses so your shell does not interpret brackets or strip the key quotes.
 Each apply retains Terraform's interactive confirmation.
 
 ## Commit and push behavior
 
-Normal `palo dev apply` manages configuration, including move-device-group jobs for hierarchy changes, but does not invoke commit/push actions. There are no
+Normal `palo dev apply` manages configuration, including move-device-group jobs
+for hierarchy changes, but does not invoke commit/push actions. There are no
 resource lifecycle action triggers. `-invoke` targets an operation rather than
 performing a normal configuration apply; it does not apply pending interface,
 variable or membership edits first. Complete step 4 before invoking actions.
 Commit and push are separate invocations; no automatic dependency between them
 is implied by their declarations.
 
-The commit selects the target's parent group, device group, template and template stack, with
+The commit selects the target's parent group, device group, template and
+template stack, with
 `force = false`. This is a configuration-scope selection, not a Terraform-only
 change filter: review other pending administrator edits in the same scopes.
 
 The push targets only serials present in both the device group and template
-entry. It includes template configuration and leaves `force_template_values = false`.
+entry. It includes template configuration and leaves `force_template_values =
+false`.
 Unassigned groups/templates have no scoped target; commit them using:
 
 ```sh
@@ -95,15 +99,17 @@ After applying candidate configuration, use this as an alternative to separate
 commit and push invocations:
 
 ```sh
-palo dev plan -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
-palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev plan
+-invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
+palo dev apply
+-invoke='module.deployment.action.panos_commit.commit_and_push["spoke/spoke"]'
 ```
 
 The combined action uses the commit action's `push_configuration` option. It
 selects the same device group/template/stack and explicit serials as the
 separate actions, includes template configuration, and does not force local
 template overrides. It only exists for entries with non-empty `serials`.
-`name_id.commit_and_push` exposes the module-relative invocation addresses.
+Use the action addresses shown above when invoking a target.
 A successful commit is not rolled back if the subsequent push fails; inspect
 the job results and retry the push-only action when appropriate.
 
@@ -113,14 +119,19 @@ the job results and retry the push-only action when appropriate.
 of `templates`. A parent commit can affect multiple child groups. Push every
 affected group/template target after changing inherited policy.
 
-`env/dev/moved.tf` preserves existing resources while moving policy ownership
-from the former `module.templates` spoke instance to the explicit
-`module.spoke_template` call, and simplify the common
-policy addresses. Other historical keys require their own mapping. Review these
-moves in a fresh plan before applying; do not use an older saved plan.
+`env/dev/moved.tf` preserves stack resource addresses when moving the nested
+stack module to `module.spoke_stack`. Network resources move from
+`module.spoke_template` through `module.common_network` to
+`module.common_template` through chained moved blocks. The existing network
+template name is retained. If the intermediate empty settings template was
+already applied, its removal will appear in the plan. Review a fresh plan
+before applying. Stack commit targets
+include all referenced templates, so changes to common must be pushed to each
+affected stack.
 
 Run `palo dev overrides plan` and `palo dev overrides apply` after the normal
-Terraform apply and before commit/push. See [per-device overrides](device-overrides.md).
+Terraform apply and before commit/push. See [per-device
+overrides](device-overrides.md).
 `--device` only limits helper writes; actions still target the full selected
 policy/template intersection.
 
@@ -133,10 +144,12 @@ palo dev push-all --dry-run
 palo dev push-all
 ```
 
-The command discovers current `module.deployment.deployment_items` through Terraform console,
+The command discovers current `module.deployment.deployment_items` through
+Terraform console,
 shows target keys and serials, and requests one batch confirmation. Each push
 runs sequentially through the existing provider action. It stops at the first
-failure, reports completed targets, and never automatically retries or rolls back.
+failure, reports completed targets, and never automatically retries or rolls
+back.
 Check Panorama job results before retrying. `--auto-approve` skips confirmation.
 An empty target map performs no pushes. The command does not commit, apply
 configuration resources, or update device overrides. It uses the selected
