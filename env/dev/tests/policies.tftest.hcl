@@ -11,8 +11,13 @@ run "parent_nat_and_security" {
     error_message = "NAT must be installed in the configured parent pre-rulebase."
   }
   assert {
-    condition     = module.security-pre.names.common == ["allow-gre-management", "allow-tcp-22", "allow-icmp"] && module.security-post.names.common == ["default-deny"]
-    error_message = "TCP/22 and ICMP allows must precede the LAN-to-WAN deny."
+    condition = (
+      module.security-pre.names.common == [
+        "allow-gre-management", "allow-bgp-management",
+        "allow-tcp-22", "allow-icmp"
+      ] && module.security-post.names.common == ["default-deny"]
+    )
+    error_message = "GRE, BGP, SSH and ICMP allows must precede the deny."
   }
   assert {
     condition     = module.services.locations.tcp_22.device_group.name == "parent"

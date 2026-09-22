@@ -43,8 +43,8 @@
       "spoke_a_remote_bgp_asn": "65001",
       "spoke_b_remote_bgp_asn": "65002",
       "bgp_router_id": "10.255.13.3",
-      "spoke_a_remote_bgp_peer_ip": "10.255.13.1/24",
-      "spoke_b_remote_bgp_peer_ip": "10.255.23.2/24"
+      "spoke_a_remote_bgp_peer_ip": "10.255.13.1",
+      "spoke_b_remote_bgp_peer_ip": "10.255.23.2"
     }
   }
 }

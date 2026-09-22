@@ -86,6 +86,17 @@ module "security-pre" {
         log_end               = true
       },
       {
+        name                  = "allow-bgp-management"
+        source_zones          = [var.item.mgmt_zone]
+        destination_zones     = [var.item.mgmt_zone]
+        source_addresses      = ["any"]
+        destination_addresses = ["any"]
+        applications          = ["bgp"]
+        services              = ["application-default"]
+        action                = "allow"
+        log_end               = true
+      },
+      {
         name                  = "allow-tcp-22"
         source_zones          = [var.item.mgmt_zone]
         destination_zones     = [var.item.mgmt_zone]

@@ -119,6 +119,11 @@ an automatic live migration.
 
 ## BGP over GRE
 
+The common pre-rulebase includes `allow-bgp-management`: management zone to
+management zone, any source/destination address, application `bgp`, service
+`application-default`, with session-end logging. This permits tunnel peer
+addresses without restricting them to the site management subnet group.
+
 BGP is configured on the existing management router in each role template.
 Spoke has one eBGP peer; hub has separate peers for spoke A and spoke B. No
 additional router or stack override is created. The peer's local address uses

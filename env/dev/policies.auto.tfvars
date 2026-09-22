@@ -7,6 +7,7 @@ policies = {
     lan_zone      = "lan"
     wan_zone      = "wan"
     wan_interface = "ethernet1/1"
+
     # Block unmatched same-zone traffic; earlier explicit allows still apply.
     default_security_rules = [{
       name    = "intrazone-default"
