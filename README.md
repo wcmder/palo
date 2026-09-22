@@ -43,15 +43,14 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   │   ├── common/          Common parent Security, NAT and default rules
 │   │   │   ├── spoke/           Future spoke policies for child groups
 │   │   │   └── hub/             Future hub policies for child groups
-│   │   ├── templates/
-│   │   │   ├── shared/common/   Shared device settings template
-│   │   │   ├── spoke/
-│   │   │   │   ├── network/     Spoke network template, GRE and BGP
-│   │   │   │   └── stacks/      Spoke template membership and devices
-│   │   │   └── hub/
-│   │   │       ├── network/     Hub network template, GRE and BGP
-│   │   │       └── stacks/      Hub template membership and devices
-│   │   └── hub_template/        Legacy unused scaffold
+│   │   └── templates/
+│   │       ├── shared/common/   Shared device settings template
+│   │       ├── spoke/
+│   │       │   ├── network/     Spoke network template, GRE and BGP
+│   │       │   └── stacks/      Spoke template membership and devices
+│   │       └── hub/
+│   │           ├── network/     Hub network template, GRE and BGP
+│   │           └── stacks/      Hub template membership and devices
 │   └── modules/
 │       └── panos/
 │           ├── panorama/        Groups, hierarchy, templates and variables

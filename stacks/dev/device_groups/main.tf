@@ -6,6 +6,8 @@ locals {
   }
 }
 
+# Create every device group, including groups without a parent field.
+# Combine serial assignments for entries with the same device_group name.
 module "device_groups" {
   source = "../../modules/panos/panorama/device_group"
   items = {
@@ -22,6 +24,9 @@ module "device_groups" {
 }
 
 
+# Manage hierarchy only for entries with an explicit parent field in tfvars.
+# A parent name assigns the group beneath it; null makes the group top-level.
+# Omitting the field leaves the group's parent assignment unmanaged.
 module "parents" {
   source = "../../modules/panos/panorama/device_group_parent"
   items = { for key, item in var.items : item.device_group => {
