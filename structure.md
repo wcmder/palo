@@ -13,24 +13,33 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Unbreakable URL destinations may exceed 80 characters; never split a URL or
   change executable syntax merely to satisfy the limit.
 
-## Configuration belongs in root tfvars
+## Fixed definitions and deployment inputs
 
-- Supply deployment values through `env/<environment>/*.tfvars`: template and
-  template-stack names, interface names, VLAN tags, zone names, virtual-router
-  names, profile names, addresses, prefix lengths, device assignments, and
-  policy
-  settings. Maintain inputs directly in `env/dev/`; do not add duplicate
-  `.example` files there. Keep documentation examples aligned with inputs.
-- Names and values in example files are illustrative. Do not turn them into
-  project requirements, hardcoded module values, validation allowlists, or
-  required naming conventions. Validate required fields and actual constraints,
-  not equality with an example value.
-- Root modules pass inputs to stacks. Root locals may resolve explicitly
-  selected
-  shared settings. Shared example settings are configuration, not universal
-  defaults that every deployment must use. Interface management and zone
-  protection profiles may use this pattern: define shared sets in root
-  `locals.tf` and select a set explicitly in the template's tfvars input.
+- Use root `env/<environment>/*.tfvars` for values that need to vary or be
+  overridden by deployment, site, or stack caller. Do not expose every constant
+  as an input merely because it is a configurable provider attribute.
+- Declare fixed shared definitions directly in the owning stack's module calls
+  or locals. Service ports, rule names, actions, application lists, and shared
+  object definitions may live there when callers do not need to change them.
+- The common policy stack already follows this pattern for the `tcp-22`
+  service and shared NAT/security rules. Device-group scope, interface and zone
+  selections remain inputs where deployments need different values.
+- Common policy addresses and groups belong in the common policy stack.
+  Fixed shared objects and membership may be declared there. Expose only the
+  names, subnets, or membership that callers need to override through inputs
+  under `policies.common`; whole object maps are appropriate when the object
+  set itself varies by deployment.
+- Keep each definition in one place. Do not duplicate fixed stack definitions
+  in tfvars or add fallback/merge logic solely to make constants overridable.
+  Promote a fixed value to an explicit input when a caller needs to vary it.
+- Root modules pass inputs to stacks. Root locals may define shared profile
+  sets selected explicitly through tfvars. Maintain inputs directly in
+  `env/dev/`; do not add duplicate `.example` files there. Keep documentation
+  examples aligned with inputs.
+- Fixed values in an example stack describe that stack, not universal project
+  requirements. Keep reusable provider modules under `stacks/modules/panos/`
+  free of deployment choices. Validate actual constraints, not equality with
+  example names or values.
 - Address inputs contain the complete provider value: an address with its prefix
   or the literal string `"None"` for an unassigned template variable. Pass the
   value directly; do not append a separate prefix or add fallback conditionals.
@@ -130,8 +139,9 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Update inputs, examples, documentation, and affected tests together.
 - Run Terraform formatting, validation, and relevant mock-provider tests for
   code
-  changes. Use alternate input values to detect hardcoded names, tags, and
-  memberships. Test values are fixtures, not required deployment settings.
+  changes. Use alternate values to verify configurable inputs are respected.
+  Verify intentional fixed definitions separately. Test values are fixtures,
+  not required deployment settings.
 - Run CLI tests when changing device variable support.
 - Preserve unrelated edits and staged changes. Do not apply to Panorama as part
   of a code-only refactor.

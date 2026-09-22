@@ -33,6 +33,12 @@ template_stacks = {
     name        = "spoke-stack"
     description = "Terraform-managed"
     templates   = ["common"]
-    serials     = ["007954000920842"]
+    serials     = ["007954000920842", "007954000920860"]
+  }
+  hub = {
+    name        = "hub-stack"
+    description = "Terraform-managed"
+    templates   = ["common"]
+    serials     = []
   }
 }

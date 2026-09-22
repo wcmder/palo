@@ -1,3 +1,39 @@
+module "addresses" {
+  source = "../../../modules/panos/objects/address"
+  items = {
+    site_a_mgmt = {
+      name       = "site-a-mgmt"
+      ip_netmask = "10.1.20.0/24"
+      location   = { device_group = { name = var.item.device_group } }
+    }
+    site_b_mgmt = {
+      name       = "site-b-mgmt"
+      ip_netmask = "10.2.20.0/24"
+      location   = { device_group = { name = var.item.device_group } }
+    }
+    site_c_mgmt = {
+      name       = "site-c-mgmt"
+      ip_netmask = "10.3.20.0/24"
+      location   = { device_group = { name = var.item.device_group } }
+    }
+  }
+}
+
+module "address_groups" {
+  source = "../../../modules/panos/objects/address_group"
+  items = {
+    site_all_mgmt = {
+      name     = "site-all-mgmt"
+      location = { device_group = { name = var.item.device_group } }
+      static = [
+        module.addresses.names.site_a_mgmt,
+        module.addresses.names.site_b_mgmt,
+        module.addresses.names.site_c_mgmt,
+      ]
+    }
+  }
+}
+
 # One owner for each parent pre-rulebase. Rule order is intentional.
 module "services" {
   source = "../../../modules/panos/objects/service"
@@ -42,8 +78,8 @@ module "security-pre" {
         name                  = "allow-tcp-22"
         source_zones          = [var.item.lan_zone, var.item.wan_zone]
         destination_zones     = [var.item.lan_zone, var.item.wan_zone]
-        source_addresses      = ["any"]
-        destination_addresses = ["any"]
+        source_addresses      = [module.address_groups.names.site_all_mgmt]
+        destination_addresses = [module.address_groups.names.site_all_mgmt]
         applications          = ["any"]
         services              = [module.services.names["tcp_22"]]
         action                = "allow"

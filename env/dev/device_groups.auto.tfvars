@@ -7,6 +7,11 @@ device_groups = {
   spoke = {
     device_group = "spoke"
     parent       = "parent"
-    serials      = ["007954000920842"]
+    serials      = ["007954000920842", "007954000920860"]
+  }
+  hub = {
+    device_group = "hub"
+    parent       = "parent"
+    serials      = []
   }
 }

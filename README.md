@@ -490,7 +490,7 @@ Environment inputs are split into automatically loaded files:
 | --- | --- |
 | `device_groups.auto.tfvars` | `device_groups` |
 | `templates.auto.tfvars` | `templates`, `template_stacks` |
-| `policies.auto.tfvars` | `policies` |
+| `policies.auto.tfvars` | Deployment-specific `policies` inputs |
 
 Edit the input files directly in `env/dev` for your deployment. Terraform automatically loads these files from the selected
 environment root, so `palo dev plan`, `apply`, and `push-all` need no extra
@@ -579,6 +579,10 @@ the former nested stack module and renames the network module to
 
 Commit targets include every template referenced by a stack. After changing a
 shared template, push every affected stack to distribute the shared changes.
+
+The common policy stack declares the fixed management address objects and
+`site-all-mgmt` group directly in `stacks/dev/policies/common/main.tf`.
+Their device-group scope comes from `policies.common.device_group`.
 
 ## Ping to interface addresses
 

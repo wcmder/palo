@@ -20,3 +20,8 @@ module "spoke_stack" {
   source = "../../stacks/dev/templates/spoke/stacks"
   item   = local.template_stacks.spoke
 }
+
+module "hub_stack" {
+  source = "../../stacks/dev/templates/spoke/stacks"
+  item   = local.template_stacks.hub
+}
