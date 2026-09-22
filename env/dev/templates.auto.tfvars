@@ -39,6 +39,6 @@ template_stacks = {
     name        = "hub-stack"
     description = "Terraform-managed"
     templates   = ["common"]
-    serials     = []
+    serials     = ["007954000920861"]
   }
 }

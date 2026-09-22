@@ -12,6 +12,6 @@ device_groups = {
   hub = {
     device_group = "hub"
     parent       = "parent"
-    serials      = []
+    serials      = ["007954000920861"]
   }
 }

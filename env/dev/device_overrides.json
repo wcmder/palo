@@ -18,5 +18,15 @@
       "mgmt_ip": "10.2.20.2/24",
       "default_gateway": "10.0.2.1"
     }
+  },
+  "pac": {
+    "serial": "007954000920861",
+    "template_stack": "hub-stack",
+    "var": {
+      "wan_ip": "10.0.3.2/24",
+      "lan_ip": "10.3.10.2/24",
+      "mgmt_ip": "10.3.20.2/24",
+      "default_gateway": "10.0.3.1"
+    }
   }
 }
