@@ -9,7 +9,7 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-HOST_FIELDS = {'default_gateway', 'gre_local_ip'}
+HOST_FIELDS = {'default_gateway'}
 FIELDS = HOST_FIELDS | {
     'wan_ip', 'lan_ip', 'mgmt_ip', 'tunnel_ip',
     'spoke_a_tunnel_ip', 'spoke_b_tunnel_ip',

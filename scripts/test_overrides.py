@@ -97,7 +97,6 @@ class OverridesTest(unittest.TestCase):
     def test_gre_variable_validation(self):
         values = {
             'tunnel_ip': '172.16.101.2/30',
-            'gre_local_ip': '10.0.1.2',
             'spoke_a_tunnel_ip': '172.16.101.1/30',
             'spoke_b_tunnel_ip': '172.16.102.1/30',
         }
@@ -106,7 +105,7 @@ class OverridesTest(unittest.TestCase):
         self.assertEqual(self.load({'paa': device})['paa']['var'], values)
         for field, value in [
             ('tunnel_ip', '172.16.101.2'),
-            ('gre_local_ip', '10.0.1.2/24'),
+            ('spoke_a_tunnel_ip', '172.16.101.1'),
         ]:
             bad = copy.deepcopy(device)
             bad['var'][field] = value

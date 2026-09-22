@@ -34,11 +34,12 @@ values. Read this file before making changes and preserve unrelated user edits.
   Promote a fixed value to an explicit input when a caller needs to vary it.
 - Use root `locals.tf` for common profiles and `local.templates` to assemble
   template inputs with their selected profiles. Pass
-  `local.templates.common` to the common template module. Put explicit role
-  GRE tunnels and memberships in each role module's `main.tf`.
+  `local.templates.<role>` to the corresponding template module. Put explicit
+  role GRE tunnels and memberships in each role module's `main.tf`.
   Locals may also assemble template-stack inputs, resolving logical template
   keys once. Pass the same objects directly to stack and deployment modules;
-  do not add an adapter solely to rename fields such as `name` to `stack`. Keep role-specific resource definitions in their stack modules.
+  do not add an adapter solely to rename fields such as `name` to `stack`.
+  Keep role-specific resource definitions in their stack modules.
 - Root modules pass inputs to stacks. Select common profile sets explicitly
   through tfvars. Maintain inputs directly in
   `env/dev/`; do not add duplicate `.example` files there. Keep documentation
@@ -71,15 +72,18 @@ values. Read this file before making changes and preserve unrelated user edits.
 
 ## Template organization
 
-- `stacks/dev/templates/shared/common/` owns one shared template containing
-  networking and common settings for spoke and future hub stacks.
-- Role-specific tunnel interfaces and variables belong in
-  `stacks/dev/templates/spoke/network/` and `hub/network/`.
-- Each role's network module also owns its GRE endpoints, management
-  router/zone memberships using stack scope. Do not place
-  role-specific GRE composition under `shared/`. A template cannot reference
-  interfaces from another template; stack scope resolves those dependencies.
-  Preserve existing interface memberships when overriding a router or zone.
+- `stacks/dev/templates/shared/common/` owns shared device settings independent
+  of role networking, such as DNS, NTP, or timezone when configured. It may
+  remain an empty template until those settings are supplied.
+- `stacks/dev/templates/spoke/network/` and `hub/network/` each own a complete
+  network template: physical and tunnel interfaces, subinterfaces, address
+  variables, interface-dependent profiles, zones, routers, and GRE endpoints.
+- Keep every network reference within its owning role template. GRE sources
+  reference that template's WAN interface address variable. Management routers
+  and zones include the management subinterface and the role's tunnels.
+- Do not create stack-scoped network overrides or duplicate the same router
+  across common and role templates. Reuse Terraform profile definitions and
+  resource wrappers, while creating their Panorama objects in each role.
 - `stacks/dev/templates/spoke/stacks/` creates a stack from an ordered list of
   existing template names and its own device assignments.
 - Create each template once. Stacks reference its output name and may reuse it
@@ -97,14 +101,12 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Do not put `for_each` or `count` on stack or feature module calls. Each
   template
   or policy stack call accepts one `item` object. Declare separate explicit root
-  calls for separate targets. Pass shared networking through
-  one `network` object assembled in `local.networks.<role>` from common
-  network inputs and that role's inputs; role values take precedence. Keep
-  role-specific endpoints and routing inputs under `templates.<role>.var`,
-  not in common. GRE, future IPsec and other network
-  features use that object; do not add separate feature input variables or
-  tfvars files. Keep stack-name bindings separate when needed to avoid a
-  dependency cycle through the template output.
+  calls for separate targets. Pass the complete role network configuration as
+  `network = var.templates.<role>.var`. Keep deployment-specific network values
+  under that role, including GRE and future IPsec; do not add separate feature
+  input variables or tfvars files. Include tunnel interface names in this
+  network object; keep template identity and profile selections outside it.
+  Stack names are not network module inputs.
 - A declared stack requires one complete, non-null `item` object
   (`nullable = false`, no default). Do not add null guards, fallback objects, or
   conditional enable/disable expressions to module `items`; use plain
@@ -172,6 +174,9 @@ values. Read this file before making changes and preserve unrelated user edits.
   appropriate moved blocks or explicit state moves; renaming a Terraform address
   does not adopt an existing device object. Keep deployment-specific migration
   mappings in the relevant environment configuration or migration documentation,
-  not as naming rules in this file.
+  not as naming rules in this file. Changing Panorama location requires an
+  actual configuration migration; state moves alone do not relocate objects.
+  Remove obsolete common networking and stack overrides before pushing the
+  completed migration. Preserve per-device variable overrides.
 - Review the final diff against these rules. Update this document when the user
   changes a convention; do not refactor unrelated code solely for conformance.

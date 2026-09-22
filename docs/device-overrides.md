@@ -6,7 +6,8 @@ are complete address/prefix strings or `"None"` for unassigned variables.
 They pass through directly; missing address fields fail evaluation.
 Terraform manages the shared device group, template, stack, interfaces,
 and device assignments. The `palo` XML API helper manages the individual
-firewall values that appear in **Panorama > Managed Devices > Summary > Variables**.
+firewall values that appear in **Panorama > Managed Devices > Summary >
+Variables**.
 
 Create `env/dev/device_overrides.json` using the following structure:
 
@@ -34,11 +35,13 @@ Create `env/dev/device_overrides.json` using the following structure:
 ```
 
 Replace example serials and addresses. Both serials must already be assigned
-to `spoke-stack` by the Terraform `template_stacks.spoke.serials` list. The shared container names are the key in `device_groups`,
-`templates.common.name`, and `template_stacks.spoke.name`. Template defaults
-are under `templates.common.var`; this JSON file still holds per-device values.
+to `spoke-stack` by the Terraform `template_stacks.spoke.serials` list. The
+shared container names are the key in `device_groups`,
+`templates.<role>.name`, and `template_stacks.spoke.name`. Template defaults
+are under `templates.<role>.var`; this JSON file still holds per-device values.
 A stack can serve many devices, and multiple stacks can reference the same
-common template. The JSON selects the stack and serial for each override. The dev's local JSON file was populated from
+owning role template. The JSON selects the stack and serial for each override.
+The dev's local JSON file was populated from
 PA-A's existing GUI overrides; it is ignored by Git.
 
 ## Commands
@@ -61,7 +64,8 @@ palo dev apply -invoke='module.deployment.action.panos_commit.commit_and_push["s
 ```
 
 `overrides` is a Python command in `palo`, not a Terraform command or resource.
-It reads `device_overrides.json`, not Terraform `.auto.tfvars` inputs. `terraform plan` does
+It reads `device_overrides.json`, not Terraform `.auto.tfvars` inputs.
+`terraform plan` does
 not display these API-managed changes. Run override plan/apply after Terraform
 configuration changes and before commit/push, because both systems touch the
 stack configuration. The helper's comparison is against **candidate** values;
@@ -108,7 +112,8 @@ there is no automatic retry, commit, push, or rollback.
 
 ## API and authentication
 
-The path was verified against the GUI-created PA-A overrides on the dev Panorama:
+The path was verified against the GUI-created PA-A overrides on the dev
+Panorama:
 
 ```text
 /config/devices/entry[@name='localhost.localdomain']/template-stack/entry[@name='spoke-stack']/devices/entry[@name='SERIAL']/variable/entry[@name='$wan_ip']
@@ -126,8 +131,8 @@ honors `skip_verify_certificate` from the environment's `palo.json`.
 
 ## GRE variables
 
-The override helper also accepts `tunnel_ip`, `gre_local_ip`,
-`spoke_a_tunnel_ip`, and `spoke_b_tunnel_ip`.
+The override helper also accepts `tunnel_ip`, `spoke_a_tunnel_ip`,
+and `spoke_b_tunnel_ip`.
 
-Tunnel interface addresses require prefixes. GRE source addresses require bare
-IPv4 addresses. See [GRE setup](gre.md) for per-device assignments.
+Tunnel interface addresses require prefixes. GRE sources use the WAN
+interface's `wan_ip` address/prefix override. See [GRE setup](gre.md) for per-device assignments.

@@ -4,7 +4,10 @@ run "multiple_variables_and_routes" {
   command = apply
   module { source = "./tests/fixtures/all" }
   assert {
-    condition     = length(output.template_variable) == 2 && length(output.static_route_ipv4) == 2
+    condition = (
+      length(output.template_variable) == 2 &&
+      length(output.static_route_ipv4) == 2
+    )
     error_message = "Both new feature modules must create multiple resources."
   }
   assert {
@@ -19,21 +22,10 @@ run "multiple_variables_and_routes" {
 
 run "spoke" {
   command = apply
-  module { source = "../../stacks/dev/templates/shared/common" }
-  variables { item = {
-    zone_protection_profiles = {
-      wan = { name = "test-wan-protection" }
-      lan = { name = "test-lan-protection" }
-    }
-    name = "test-spoke01-network"
-
-    description = "Terraform-managed spoke"
-    interface_management_profiles = {
-      wan  = { name = "wan-ping", ping = true }
-      lan  = { name = "lan-ping", ping = true }
-      mgmt = { name = "mgmt-ping", ping = true }
-    }
-    var = {
+  module { source = "../../stacks/dev/templates/spoke/network" }
+  variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/1"
       lan_interface         = "ethernet1/2"
       lan_subinterface_tag  = 20
@@ -47,9 +39,26 @@ run "spoke" {
       mgmt_ip               = "203.0.113.1/24"
       default_gateway       = "192.0.2.1"
       data_virtual_router   = "spoke-vr"
-    }
 
-  } }
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
+    item = {
+      zone_protection_profiles = {
+        wan = { name = "test-wan-protection" }
+        lan = { name = "test-lan-protection" }
+      }
+      name = "test-spoke01-network"
+
+      description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "wan-ping", ping = true }
+        lan  = { name = "lan-ping", ping = true }
+        mgmt = { name = "mgmt-ping", ping = true }
+      }
+
+    }
+  }
   assert {
     condition = (
       length(output.names.interface_management_profiles) == 3 &&
@@ -75,50 +84,48 @@ run "spoke" {
       output.names.subinterfaces.lan == "ethernet1/2.20" &&
       module.subinterfaces.assignments.mgmt.ip[0].name == "$mgmt_ip" &&
       module.subinterfaces.assignments.lan.ip[0].name == "$lan_ip" &&
-      module.subinterfaces.assignments.mgmt.tag == var.item.var.mgmt_subinterface_tag &&
-      module.subinterfaces.assignments.lan.tag == var.item.var.lan_subinterface_tag
+      module.subinterfaces.assignments.mgmt.tag ==
+      var.network.mgmt_subinterface_tag &&
+      module.subinterfaces.assignments.lan.tag ==
+      var.network.lan_subinterface_tag
     )
-    error_message = "Subinterfaces must follow this template's parent, VLAN tags and IP variables."
+    error_message = "Configured role values and memberships must be preserved."
   }
   assert {
     condition = (
       module.routers.names.mgmt == "mgmt" &&
       module.zones.names.mgmt == "mgmt" &&
-      toset(module.routers.interfaces.mgmt) == toset(["ethernet1/2.10"]) &&
-      toset(module.routers.interfaces.data) == toset(["ethernet1/1", "ethernet1/2.20"]) &&
-      toset(module.zones.interfaces.mgmt) == toset(["ethernet1/2.10"]) &&
+      toset(module.routers.interfaces.mgmt) ==
+      toset(["ethernet1/2.10", "tunnel.100"]) &&
+      toset(module.routers.interfaces.data) ==
+      toset(["ethernet1/1", "ethernet1/2.20"]) &&
+      toset(module.zones.interfaces.mgmt) ==
+      toset(["ethernet1/2.10", "tunnel.100"]) &&
       toset(module.zones.interfaces.lan) == toset(["ethernet1/2.20"])
     )
-    error_message = "Management and data must retain separate router and zone memberships."
+    error_message = "Configured role values and memberships must be preserved."
   }
   assert {
     condition = (
-      length(output.names.interfaces) == 2 && length(output.names.variables) == 4 &&
+      length(output.names.interfaces) ==
+      2 && length(output.names.variables) == 5 &&
       output.variable_values["$lan_ip"] == "198.51.100.1/24" &&
       module.routes.locations.default.template.name == var.item.name &&
-      module.subinterfaces.names.mgmt == "${var.item.var.lan_interface}.${var.item.var.mgmt_subinterface_tag}"
+      module.subinterfaces.names.mgmt == format(
+        "%s.%s", var.network.lan_interface,
+        var.network.mgmt_subinterface_tag
+      )
     )
-    error_message = "Resource names, variables and routes must follow template inputs."
+    error_message = "Configured role values and memberships must be preserved."
   }
 }
 
 run "alternate_template" {
   command = apply
-  module { source = "../../stacks/dev/templates/shared/common" }
-  variables { item = {
-    zone_protection_profiles = {
-      wan = { name = "test-wan-protection" }
-      lan = { name = "test-lan-protection" }
-    }
-    name = "test-spoke02-network"
-
-    description = "Terraform-managed spoke"
-    interface_management_profiles = {
-      wan  = { name = "external-ping", ping = true }
-      lan  = { name = "internal-ping", ping = true }
-      mgmt = { name = "admin-ping", ping = true }
-    }
-    var = {
+  module { source = "../../stacks/dev/templates/spoke/network" }
+  variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
       wan_interface         = "ethernet1/3"
       lan_interface         = "ethernet1/4"
       lan_subinterface_tag  = 120
@@ -132,15 +139,33 @@ run "alternate_template" {
       mgmt_ip               = "203.0.113.1/24"
       default_gateway       = "192.0.2.5"
       data_virtual_router   = "spoke-vr"
-    }
 
-  } }
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
+    item = {
+      zone_protection_profiles = {
+        wan = { name = "test-wan-protection" }
+        lan = { name = "test-lan-protection" }
+      }
+      name = "test-spoke02-network"
+
+      description = "Terraform-managed spoke"
+      interface_management_profiles = {
+        wan  = { name = "external-ping", ping = true }
+        lan  = { name = "internal-ping", ping = true }
+        mgmt = { name = "admin-ping", ping = true }
+      }
+
+    }
+  }
   assert {
     condition = (
       module.interfaces.management_profiles.wan == "external-ping" &&
       module.subinterfaces.management_profiles.lan == "internal-ping" &&
       module.subinterfaces.management_profiles.mgmt == "admin-ping" &&
-      module.interface_management_profiles.locations.mgmt.template.name == var.item.name
+      module.interface_management_profiles.locations.mgmt.template.name ==
+      var.item.name
     )
     error_message = "Profile names and scope must follow the template input."
   }
@@ -150,37 +175,65 @@ run "alternate_template" {
       output.names.subinterfaces.lan == "ethernet1/4.120" &&
       module.subinterfaces.assignments.mgmt.ip[0].name == "$mgmt_ip" &&
       module.subinterfaces.assignments.lan.ip[0].name == "$lan_ip" &&
-      module.subinterfaces.assignments.mgmt.tag == var.item.var.mgmt_subinterface_tag &&
-      module.subinterfaces.assignments.lan.tag == var.item.var.lan_subinterface_tag
+      module.subinterfaces.assignments.mgmt.tag ==
+      var.network.mgmt_subinterface_tag &&
+      module.subinterfaces.assignments.lan.tag ==
+      var.network.lan_subinterface_tag
     )
-    error_message = "Subinterfaces must follow this template's parent, VLAN tags and IP variables."
+    error_message = "Configured role values and memberships must be preserved."
   }
   assert {
     condition = (
       module.routers.names.mgmt == "management-vr" &&
       module.zones.names.mgmt == "management" &&
-      toset(module.routers.interfaces.mgmt) == toset(["ethernet1/4.110"]) &&
-      toset(module.routers.interfaces.data) == toset(["ethernet1/3", "ethernet1/4.120"]) &&
-      toset(module.zones.interfaces.mgmt) == toset(["ethernet1/4.110"]) &&
+      toset(module.routers.interfaces.mgmt) ==
+      toset(["ethernet1/4.110", "tunnel.100"]) &&
+      toset(module.routers.interfaces.data) ==
+      toset(["ethernet1/3", "ethernet1/4.120"]) &&
+      toset(module.zones.interfaces.mgmt) ==
+      toset(["ethernet1/4.110", "tunnel.100"]) &&
       toset(module.zones.interfaces.lan) == toset(["ethernet1/4.120"])
     )
-    error_message = "Management and data must retain separate router and zone memberships."
+    error_message = "Configured role values and memberships must be preserved."
   }
   assert {
     condition = (
-      length(output.names.interfaces) == 2 && length(output.names.variables) == 4 &&
+      length(output.names.interfaces) ==
+      2 && length(output.names.variables) == 5 &&
       output.variable_values["$lan_ip"] == "203.0.113.1/25" &&
       module.routes.locations.default.template.name == var.item.name &&
-      module.subinterfaces.names.mgmt == "${var.item.var.lan_interface}.${var.item.var.mgmt_subinterface_tag}"
+      module.subinterfaces.names.mgmt == format(
+        "%s.%s", var.network.lan_interface,
+        var.network.mgmt_subinterface_tag
+      )
     )
-    error_message = "Resource names, variables and routes must follow template inputs."
+    error_message = "Configured role values and memberships must be preserved."
   }
 }
 
-run "shared_stack_explicit_variables" {
+run "role_explicit_variables" {
   command = apply
-  module { source = "../../stacks/dev/templates/shared/common" }
+  module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
+      wan_interface         = "ethernet1/1"
+      lan_interface         = "ethernet1/2"
+      lan_subinterface_tag  = 20
+      mgmt_subinterface_tag = 10
+      mgmt_zone             = "mgmt"
+      mgmt_virtual_router   = "mgmt"
+      wan_zone              = "wan"
+      lan_zone              = "lan"
+      wan_ip                = "None"
+      lan_ip                = "None"
+      mgmt_ip               = "None"
+      default_gateway       = "None"
+      data_virtual_router   = "spoke-vr"
+
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
@@ -193,21 +246,6 @@ run "shared_stack_explicit_variables" {
         wan  = { name = "wan-ping", ping = true }
         lan  = { name = "lan-ping", ping = true }
         mgmt = { name = "mgmt-ping", ping = true }
-      }
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "None"
-        lan_ip                = "None"
-        mgmt_ip               = "None"
-        default_gateway       = "None"
-        data_virtual_router   = "spoke-vr"
       }
 
 
@@ -222,7 +260,7 @@ run "shared_stack_explicit_variables" {
         "$default_gateway" = "None"
       } : output.variable_values[name] == value
     ])
-    error_message = "Unassigned template variables must pass through as None without appending a prefix."
+    error_message = "Configured role values and memberships must be preserved."
   }
   assert {
     condition     = output.names.template == var.item.name
@@ -232,8 +270,27 @@ run "shared_stack_explicit_variables" {
 
 run "reject_same_interface" {
   command = plan
-  module { source = "../../stacks/dev/templates/shared/common" }
+  module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
+      wan_interface         = "ethernet1/1"
+      lan_interface         = "ethernet1/1"
+      lan_subinterface_tag  = 20
+      mgmt_subinterface_tag = 10
+      mgmt_zone             = "mgmt"
+      mgmt_virtual_router   = "mgmt"
+      wan_zone              = "wan"
+      lan_zone              = "lan"
+      wan_ip                = "192.0.2.2/30"
+      lan_ip                = "198.51.100.1/24"
+      mgmt_ip               = "203.0.113.1/24"
+      default_gateway       = "192.0.2.1"
+      data_virtual_router   = "spoke-vr"
+
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
@@ -248,30 +305,34 @@ run "reject_same_interface" {
         lan  = { name = "lan-ping", ping = true }
         mgmt = { name = "mgmt-ping", ping = true }
       }
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/1"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "192.0.2.2/30"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "spoke-vr"
-      }
     }
   }
-  expect_failures = [var.item]
+  expect_failures = [var.network]
 }
 
 run "gateway_validation_deferred_to_provider" {
   command = plan
-  module { source = "../../stacks/dev/templates/shared/common" }
+  module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
+      wan_interface         = "ethernet1/1"
+      lan_interface         = "ethernet1/2"
+      lan_subinterface_tag  = 20
+      mgmt_subinterface_tag = 10
+      mgmt_zone             = "mgmt"
+      mgmt_virtual_router   = "mgmt"
+      wan_zone              = "wan"
+      lan_zone              = "lan"
+      wan_ip                = "10.0.1.2/24"
+      default_gateway       = "10.0.2.1"
+      lan_ip                = "198.51.100.1/24"
+      mgmt_ip               = "203.0.113.1/24"
+      data_virtual_router   = "spoke-vr"
+
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
@@ -285,34 +346,39 @@ run "gateway_validation_deferred_to_provider" {
         wan  = { name = "wan-ping", ping = true }
         lan  = { name = "lan-ping", ping = true }
         mgmt = { name = "mgmt-ping", ping = true }
-      }
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "wan"
-        lan_zone              = "lan"
-        wan_ip                = "10.0.1.2/24"
-        default_gateway       = "10.0.2.1"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        data_virtual_router   = "spoke-vr"
       }
     }
   }
   assert {
     condition     = output.variable_values["$default_gateway"] == "10.0.2.1"
-    error_message = "Gateway configuration must pass through without imposing a same-subnet convention."
+    error_message = "Configured role values and memberships must be preserved."
   }
 }
 
 run "explicit_values_and_extra_fields" {
   command = plan
-  module { source = "../../stacks/dev/templates/shared/common" }
+  module { source = "../../stacks/dev/templates/spoke/network" }
   variables {
+    network = {
+      tunnel_interface      = "tunnel.100"
+      wan_interface         = "ethernet1/1"
+      lan_interface         = "ethernet1/2"
+      lan_subinterface_tag  = 20
+      mgmt_subinterface_tag = 10
+      mgmt_zone             = "mgmt"
+      mgmt_virtual_router   = "mgmt"
+      wan_zone              = "untrust"
+      lan_zone              = "trust"
+      wan_ip                = "192.0.2.2/30"
+      future_setting        = "preserved"
+      lan_ip                = "198.51.100.1/24"
+      mgmt_ip               = "203.0.113.1/24"
+      default_gateway       = "192.0.2.1"
+      data_virtual_router   = "spoke-vr"
+
+      hub_wan_ip = "10.0.3.2"
+      tunnel_ip  = "None"
+    }
     item = {
       zone_protection_profiles = {
         wan = { name = "test-wan-protection" }
@@ -327,26 +393,15 @@ run "explicit_values_and_extra_fields" {
         lan  = { name = "lan-ping", ping = true }
         mgmt = { name = "mgmt-ping", ping = true }
       }
-      var = {
-        wan_interface         = "ethernet1/1"
-        lan_interface         = "ethernet1/2"
-        lan_subinterface_tag  = 20
-        mgmt_subinterface_tag = 10
-        mgmt_zone             = "mgmt"
-        mgmt_virtual_router   = "mgmt"
-        wan_zone              = "untrust"
-        lan_zone              = "trust"
-        wan_ip                = "192.0.2.2/30"
-        future_setting        = "preserved"
-        lan_ip                = "198.51.100.1/24"
-        mgmt_ip               = "203.0.113.1/24"
-        default_gateway       = "192.0.2.1"
-        data_virtual_router   = "spoke-vr"
-      }
     }
   }
   assert {
-    condition     = var.item.var.wan_ip == "192.0.2.2/30" && var.item.var.wan_zone == "untrust" && var.item.var.lan_zone == "trust" && var.item.var.future_setting == "preserved"
-    error_message = "Explicit values and future input fields must pass through unchanged."
+    condition = (
+      var.network.wan_ip == "192.0.2.2/30" &&
+      var.network.wan_zone == "untrust" &&
+      var.network.lan_zone == "trust" &&
+      var.network.future_setting == "preserved"
+    )
+    error_message = "Configured role values and memberships must be preserved."
   }
 }

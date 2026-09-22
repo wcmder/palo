@@ -10,3 +10,10 @@ output "management_profiles" {
     key => try(p.layer3.interface_management_profile, null)
   }
 }
+
+output "locations" {
+  value = {
+    for key, resource in panos_ethernet_interface.this :
+    key => resource.location
+  }
+}

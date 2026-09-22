@@ -12,3 +12,10 @@ output "interfaces" {
   description = "Configured Layer 3 interface membership keyed by input key."
   value       = { for key, resource in panos_zone.this : key => resource.network.layer3 }
 }
+
+output "locations" {
+  value = {
+    for key, resource in panos_zone.this :
+    key => resource.location
+  }
+}

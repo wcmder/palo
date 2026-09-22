@@ -27,17 +27,13 @@ module "hub_stack" {
 }
 
 module "spoke_template" {
-  source         = "../../stacks/dev/templates/spoke/network"
-  item           = local.templates.spoke
-  network        = local.networks.spoke
-  stack          = module.spoke_stack.names.template
-  mgmt_interface = module.common_template.names.subinterfaces.mgmt
+  source  = "../../stacks/dev/templates/spoke/network"
+  item    = local.templates.spoke
+  network = var.templates.spoke.var
 }
 
 module "hub_template" {
-  source         = "../../stacks/dev/templates/hub/network"
-  item           = local.templates.hub
-  network        = local.networks.hub
-  stack          = module.hub_stack.names.template
-  mgmt_interface = module.common_template.names.subinterfaces.mgmt
+  source  = "../../stacks/dev/templates/hub/network"
+  item    = local.templates.hub
+  network = var.templates.hub.var
 }

@@ -7,3 +7,10 @@ output "interfaces" {
   description = "Configured Layer 3 interface membership keyed by input key."
   value       = { for key, resource in panos_virtual_router.this : key => resource.interfaces }
 }
+
+output "locations" {
+  value = {
+    for key, resource in panos_virtual_router.this :
+    key => resource.location
+  }
+}

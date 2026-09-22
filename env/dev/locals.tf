@@ -57,30 +57,24 @@ locals {
     }
   }
 
-  # Resolve shared profile selections for the common template input.
+  # Reuse profile definitions in each independent network template.
   templates = {
-    spoke = var.templates.spoke
-    hub   = var.templates.hub
-    common = {
-      name        = var.templates.common.name
-      description = var.templates.common.description
-      var         = var.templates.common.var
+    common = var.templates.common
+    spoke = merge(var.templates.spoke, {
       zone_protection_profiles = local.zone_protection_profiles[
-        var.templates.common.zone_protection_profile_set
+        var.templates.spoke.zone_protection_profile_set
       ]
       interface_management_profiles = local.interface_management_profiles[
-        var.templates.common.interface_management_profile_set
+        var.templates.spoke.interface_management_profile_set
       ]
-    }
-  }
-
-  # Combine shared networking with each role's deployment-specific values.
-  networks = {
-    spoke = merge(var.templates.common.var, var.templates.spoke.var, {
-      wan_address_reference = module.common_template.names.variables.wan_ip
     })
-    hub = merge(var.templates.common.var, var.templates.hub.var, {
-      wan_address_reference = module.common_template.names.variables.wan_ip
+    hub = merge(var.templates.hub, {
+      zone_protection_profiles = local.zone_protection_profiles[
+        var.templates.hub.zone_protection_profile_set
+      ]
+      interface_management_profiles = local.interface_management_profiles[
+        var.templates.hub.interface_management_profile_set
+      ]
     })
   }
 

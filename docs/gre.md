@@ -1,21 +1,19 @@
 # Management GRE hub and spokes
 
-The spoke stack layers `spoke-network` above `common-network`. The hub stack
-layers `hub-network` above `common-network`. The common template still owns
-WAN and management LAN interfaces, and the data virtual router.
+The spoke stack layers `spoke-network` above `common-network`; the hub stack
+layers `hub-network` above `common-network`. Common is reserved for independent
+shared device settings. It currently contains only the template container.
 
-The `spoke_template` and `hub_template` modules own their tunnel interfaces,
-ping profiles, address variables, GRE endpoints, memberships.
-Within each role module, `main.tf` creates template-scoped interfaces and
-variables, plus endpoints, router/zone memberships at
-**template-stack scope**. Panorama permits stack
-configuration to reference inherited objects; one template cannot reference
-objects in another template. See the [template-stack guide][stacks].
+Each role's `main.tf` owns its complete network inside its own template:
+WAN/LAN interfaces, subinterfaces, tunnel interfaces, variables, profiles,
+routers, zones, GRE endpoints, and the data router's WAN default route.
+Spoke has one GRE tunnel; hub has two. Each management router and zone includes
+its management subinterface and its tunnels. Stacks only assign templates and
+devices; no network resource uses template-stack scope.
 
-Each stack's management router and zone include the inherited management LAN
-interface and its tunnel interfaces. The data router retains the WAN interface
-and default route used to reach GRE peers. WAN routing between the three
-endpoint addresses must already work.
+All interface references resolve within the same template. Shared profile
+settings are reused from root locals, with separate Panorama profile objects
+in each role template. WAN routing between GRE endpoints must already work.
 
 ## Inputs and variables
 
@@ -42,21 +40,23 @@ Add these values to each device's `var` object in `device_overrides.json`:
 | PA-C | `spoke_a_tunnel_ip` | PA-C address/prefix on the PA-A tunnel |
 | PA-C | `spoke_b_tunnel_ip` | PA-C address/prefix on the PA-B tunnel |
 
-All GRE local addresses reference the common interface's `$wan_ip` variable,
+All GRE local addresses reference their role interface's `$wan_ip` variable,
 including its per-device address/prefix override. The source is an interface
 address reference, not a bare peer address. Each spoke must set its own
 `tunnel_ip`; PA-C must set both hub tunnel interface addresses. Hub defaults
 may be configured in tfvars because that template serves one hub.
 
-The older spoke `gre_local_ip` variable and overrides are retained for
-compatibility with existing configuration, but GRE no longer references them.
-They do not determine the source address.
+The unused `gre_local_ip` variable has been removed. Existing deployments
+should remove any remaining per-device overrides for it in Panorama. Removing
+a key from the local JSON does not delete its existing Panorama override.
+GRE continues to use `$wan_ip`.
 
 Spoke and hub templates do not install static management routes. BGP will be
 added later; remote management networks are not routed through GRE yet. The
-common template's data-router default route remains for WAN reachability.
+role templates' data-router default routes remain for WAN reachability.
 The common policy permits GRE between the configured WAN endpoints and allows
-management TCP/22 between `site-all-mgmt` addresses. Existing ICMP policy remains.
+management TCP/22 between `site-all-mgmt` addresses. Existing ICMP policy
+remains.
 Keep `policies.common.gre_endpoints` aligned with WAN endpoint changes.
 
 ## Deployment
@@ -80,10 +80,39 @@ IPv4 with a 1476-byte tunnel MTU and keepalives. See the [GRE setup guide][gre].
 [stacks]: https://docs.paloaltonetworks.com/panorama/administration/manage-firewalls/manage-templates-and-template-stacks/configure-a-template-stack
 [gre]: https://docs.paloaltonetworks.com/ngfw/networking/gre-tunnels/create-a-gre-tunnel
 
-Root `locals.tf` assembles common profiles, template inputs, stack membership
-and deployment targets. GRE endpoints and
-WAN peer values come from each role's template inputs. Each module's
-`main.tf` declares its tunnels and memberships explicitly. Root module
-calls pass `network = local.networks.<role>` and the created stack name.
-These locals combine common network settings with the role's values.
-GRE and future network features share this input object.
+Root `locals.tf` assembles selected profiles, template inputs and stack
+membership. Root calls pass `network = var.templates.<role>.var`; each role
+receives its complete network configuration, including future network features.
+
+## Migration from shared networking
+
+This changes Panorama ownership, not just Terraform addresses. Existing
+network resources in common must become separate resources in spoke and hub.
+Existing stack-scoped GRE endpoints and management router/zone overrides must
+be removed as their template-scoped replacements take ownership. Template and
+stack names, firewall assignments, and variable names are preserved.
+
+Before applying to an existing deployment:
+
+1. Save the Terraform state and a Panorama configuration snapshot. Record the
+   current per-device overrides and effective network configuration.
+2. Review a Terraform plan against the actual state. Expect common networking
+   to be removed, base networking to be created in both role templates, and
+   stack-scoped GRE/router/zone resources to change location. Do not use state
+   moves to pretend an object has changed Panorama location, or map the one
+   common object to both roles. Import any role objects already created outside
+   Terraform before managing them.
+3. Apply the reviewed migration to the candidate configuration. If Panorama
+   rejects deletion of a referenced object, stage the migration so replacement
+   role resources exist and references are changed before deleting old objects.
+   Do not commit or push an intermediate, partially migrated configuration.
+4. Verify that both role templates are complete and old stack network overrides
+   are gone. Check the effective stack configuration, including the single
+   management router, full memberships, WAN default route and GRE sources.
+5. Reconcile per-device overrides using `palo dev overrides plan` and
+   `palo dev overrides apply`. Supply all tunnel addresses, validate Panorama,
+   then commit and push both stacks.
+
+Mock tests verify Terraform composition only. They do not verify API relocation
+behavior or migrate existing Panorama objects. This refactor does not include
+an automatic live migration.

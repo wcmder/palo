@@ -2,7 +2,9 @@
 
 The dev requires Terraform >= 1.14 and PAN-OS provider 2.0.13. Actions are
 defined in `stacks/modules/panos/operations/commit_push` and called from
-`env/dev/actions.tf` as `module.deployment`: one scoped commit/push target per non-empty device-group/template serial intersection. They use the same keyring-based
+`env/dev/actions.tf` as `module.deployment`: one scoped commit/push target per
+non-empty device-group/template serial intersection. They use the same
+keyring-based
 provider connection as the configuration resources.
 
 1. Store Panorama credentials in keyring and set hostname/keyring selectors in
@@ -28,15 +30,19 @@ provider connection as the configuration resources.
 5. Review candidate changes and commit the selected spoke to Panorama:
 
    ```sh
-   palo dev plan -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
-   palo dev apply -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+   palo dev plan
+   -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
+   palo dev apply
+   -invoke='module.deployment.action.panos_commit.this["spoke/spoke"]'
    ```
 
 6. After the commit succeeds, push to the spoke's assigned firewalls:
 
    ```sh
-   palo dev plan -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
-   palo dev apply -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+   palo dev plan
+   -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
+   palo dev apply
+   -invoke='module.deployment.action.panos_push_to_devices.this["spoke/spoke"]'
    ```
 
 Replace `spoke/spoke` with `<device-group>/<template-key>` for another target.
@@ -119,15 +125,10 @@ the job results and retry the push-only action when appropriate.
 of `templates`. A parent commit can affect multiple child groups. Push every
 affected group/template target after changing inherited policy.
 
-`env/dev/moved.tf` preserves stack resource addresses when moving the nested
-stack module to `module.spoke_stack`. Network resources move from
-`module.spoke_template` through `module.common_network` to
-`module.common_template` through chained moved blocks. The existing network
-template name is retained. If the intermediate empty settings template was
-already applied, its removal will appear in the plan. Review a fresh plan
-before applying. Stack commit targets
-include all referenced templates, so changes to common must be pushed to each
-affected stack.
+Network ownership now belongs to the spoke and hub templates. For existing
+common networking and stack overrides, follow the
+[migration procedure](gre.md#migration-from-shared-networking). State moves
+alone cannot change the Panorama location of network objects.
 
 Run `palo dev overrides plan` and `palo dev overrides apply` after the normal
 Terraform apply and before commit/push. See [per-device

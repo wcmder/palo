@@ -44,7 +44,7 @@ Environment roots call composed stacks, which call reusable feature modules:
 │   │   │   ├── branch/          Future branch policies for child groups
 │   │   │   └── hub/             Future hub policies for child groups
 │   │   ├── templates/
-│   │   │   ├── shared/common/   Shared network and settings template
+│   │   │   ├── shared/common/   Shared device settings template
 │   │   │   ├── spoke/
 │   │   │   │   ├── network/   Spoke tunnel template and GRE configuration
 │   │   │   │   └── stacks/    Ordered template membership and devices
@@ -494,7 +494,8 @@ Environment inputs are split into automatically loaded files:
 | `templates.auto.tfvars` | `templates`, `template_stacks` |
 | `policies.auto.tfvars` | Deployment-specific `policies` inputs |
 
-Edit the input files directly in `env/dev` for your deployment. Terraform automatically loads these files from the selected
+Edit the input files directly in `env/dev` for your deployment. Terraform
+automatically loads these files from the selected
 environment root, so `palo dev plan`, `apply`, and `push-all` need no extra
 flags. Keep each root variable in one file: repeated map definitions replace
 rather than merge values. Do not also define these variables in a leftover
@@ -503,16 +504,13 @@ rather than merge values. Do not also define these variables in a leftover
 
 Composition variables use `type = any`; resource modules retain typed inputs.
 Each declared stack call accepts one required, non-null `item` object. Dev
-declares one common template, a spoke stack, and common policies;
-unused stacks have no root
-call. Feature module calls use one `items` map; only resource wrappers use
-`for_each`. The template stack explicitly defines interfaces, subinterfaces,
-zones, variables, routers and a default route. Set network values in
-`templates.common.var`. To add a DMZ, add its values there and explicit resource
-entries in templates/shared/common/main.tf; there is no need to
-duplicate
-the input
-schema across parent modules. Supply WAN, LAN and management addresses as
+declares common, spoke and hub templates, two stacks, and common policies.
+Feature module calls use one `items` map; only resource wrappers use `for_each`.
+Each role network template owns its interfaces, subinterfaces, zones, variables,
+routers, profiles, GRE tunnels and WAN default route. Set complete network
+values in `templates.spoke.var` or `templates.hub.var`. To add a DMZ, add its
+inputs there and explicit resource entries in the owning role's `main.tf`.
+Supply WAN, LAN and management addresses as
 complete strings, such as `"192.0.2.2/30"`, or `"None"` for an unassigned
 template variable. Values pass through directly; separate prefix fields are no
 longer used. Missing address fields raise Terraform errors. Assign device IP
@@ -538,21 +536,18 @@ and `hub` policy folders remain scaffolds. One module instance must own each
 device-group/policy-type/rulebase scope; combine its ordered rules there.
 
 
-`hub_template` is also a scaffold. Hub devices with the same WAN/LAN resource
-layout can reuse the spoke stack through a new explicit root call with complete
-inputs. Update the root template-key validation and action inputs at the same
-time. Implement a separate hub module when its resource structure differs.
-
 ## Common templates and spoke stacks
 
 Template definitions and stack assignments are separate:
 
-- `templates.common` defines one shared network and settings template.
-- `templates.spoke` and `templates.hub` define role-specific GRE networking.
+- `templates.common` defines a shared device settings template.
+- `templates.spoke` and `templates.hub` each define a complete network.
 - `template_stacks.spoke` and `.hub` define membership and firewall serials.
 
-The common template contains interfaces, variables, routers, routes, zones,
-and their profiles. Add future shared settings directly to this template.
+Common currently contains only its template container. Add independent shared
+settings such as DNS, NTP or timezone there when their values are supplied.
+Network-dependent profiles live in each role template; their shared definitions
+remain in `locals.tf`.
 
 ```hcl
 template_stacks = {
@@ -571,15 +566,16 @@ outputs. Use `["common"]` for a common-only stack, or add specific templates
 in the desired order. Declare an additional explicit root stack call to create
 another stack referencing the same common templates; do not recreate them.
 The current spoke stack uses `["spoke", "common"]`; the hub stack uses
-`["hub", "common"]`. Their GRE bindings live in the respective role modules
-and reference inherited interfaces through stack-scoped resources.
+`["hub", "common"]`. All network resources live in their respective role
+templates; stacks contain membership and device assignments only.
 
 `stacks/dev/templates/shared/common` owns the shared template, and
 `stacks/dev/templates/spoke/stacks` owns stack creation. Each call accepts one
 required object; module calls have no `for_each` or null guards. The existing
-network template and stack keep their Panorama names. `env/dev/moved.tf` moves
-the former nested stack module and renames the network module to
-`module.common_template` without recreating its resources.
+template and stack names are preserved. Existing deployments need a Panorama
+ownership migration from common networking and stack overrides. See the
+[migration procedure](docs/gre.md#migration-from-shared-networking) before
+applying. Terraform state moves alone cannot relocate Panorama objects.
 
 Commit targets include every template referenced by a stack. After changing a
 shared template, push every affected stack to distribute the shared changes.
@@ -779,11 +775,10 @@ be committed using `module.deployment.action.panos_commit.all`. Shared policy
 commits can include changes affecting other children; push each affected target
 deliberately. Normal apply does not invoke commit/push actions.
 
-The root `moved.tf` migrates existing policy/template resource addresses. Run
-`palo dev plan` and review the moves before applying; do not apply an old saved
-plan. No state migration occurs until you apply. Unused root outputs are
-removed; reusable modules retain `names` and other outputs needed by callers,
-tests, or documented workflows.
+Review a fresh `palo dev plan` before applying; do not apply an old saved plan.
+For the network ownership change, follow the migration procedure in
+[GRE deployment](docs/gre.md#migration-from-shared-networking). Reusable modules
+retain `names` and other outputs needed by callers, tests or workflows.
 
 ## Offline checks
 
@@ -826,8 +821,9 @@ combined `commit_and_push` action also retains its scoped partial commit.
 Shared zone protection settings live in `env/dev/locals.tf`. Select them with
 `zone_protection_profile_set = "standard"` in a template entry in
 `templates.auto.tfvars`. The root resolves that name and passes
-the selected profiles to the common template module in `main.tf`; tfvars
-cannot reference locals directly. The `wan` and `lan` entries create separate profiles and attach
+the selected profiles to each role template module in `main.tf`; tfvars
+cannot reference locals directly. The `wan` and `lan` entries create separate
+profiles and attach
 them to their respective zones through `network.zone_protection_profile`. The
 reusable `network/zone_protection_profile` module supports multiple profiles and
 returns a `names` map. The set selector and both profile entries
@@ -881,9 +877,8 @@ router has no static routes configured.
 
 The dev root creates common, spoke and hub templates with two stacks. Add
 root template/stack calls and corresponding input wiring for more targets.
-`policies.common` is one object (no `parent` wrapper). State moves for the
-previous dev addresses are in `env/dev/moved.tf`; review a fresh plan before
-applying.
+`policies.common` is one object (no `parent` wrapper). Review a fresh plan
+and the network migration procedure before applying.
 
 [keyring-setup]:
   #save-and-retrieve-panorama-credentials-with-keyring

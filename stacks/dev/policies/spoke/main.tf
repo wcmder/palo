@@ -1,4 +1,4 @@
-# Branch-specific policies assigned to child device groups.
+# Spoke-specific policies assigned to child device groups.
 # Reserved for future Security/NAT rules; this scaffold creates no resources.
 # Call ../../../modules/panos/policy/security and/or ../../../modules/panos/policy/nat.
 # Accept multiple targets through an items map when implemented.

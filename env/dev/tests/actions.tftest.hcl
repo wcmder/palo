@@ -3,37 +3,13 @@ mock_provider "panos" {}
 variables {
   templates = {
     spoke = {
-      name             = "test-spoke-gre"
-      description      = "Test spoke"
-      tunnel_interface = "tunnel.100"
-      var = {
-        hub_wan_ip   = "10.0.3.2"
-        tunnel_ip    = "172.16.101.2/30"
-        gre_local_ip = "192.0.2.2"
-      }
-    }
-    hub = {
-      name              = "test-hub-gre"
-      description       = "Test hub"
-      spoke_a_interface = "tunnel.101"
-      spoke_b_interface = "tunnel.102"
-      var = {
-        hub_wan_ip        = "10.0.3.2"
-        spoke_a_wan_ip    = "10.0.1.2"
-        spoke_b_wan_ip    = "10.0.2.2"
-        spoke_a_tunnel_ip = "172.16.101.1/30"
-        spoke_b_tunnel_ip = "172.16.102.1/30"
-      }
-    }
-
-    common = {
-      name = "spoke-network"
-
-      description = "Terraform-managed spoke"
-      # Shared settings in locals.tf; select the WAN/LAN protection profiles.
       zone_protection_profile_set      = "standard"
       interface_management_profile_set = "ping_only"
+
+      name        = "test-spoke-gre"
+      description = "Test spoke"
       var = {
+        tunnel_interface      = "tunnel.100"
         wan_interface         = "ethernet1/1"
         lan_interface         = "ethernet1/2"
         lan_subinterface_tag  = 20
@@ -47,8 +23,43 @@ variables {
         mgmt_ip               = "203.0.113.1/24"
         default_gateway       = "192.0.2.1"
         data_virtual_router   = "spoke-vr"
-      }
 
+        hub_wan_ip = "10.0.3.2"
+        tunnel_ip  = "172.16.101.2/30"
+      }
+    }
+    hub = {
+      zone_protection_profile_set      = "standard"
+      interface_management_profile_set = "ping_only"
+
+      name        = "test-hub-gre"
+      description = "Test hub"
+      var = {
+        spoke_a_interface     = "tunnel.101"
+        spoke_b_interface     = "tunnel.102"
+        wan_interface         = "ethernet1/1"
+        lan_interface         = "ethernet1/2"
+        lan_subinterface_tag  = 20
+        mgmt_subinterface_tag = 10
+        mgmt_zone             = "mgmt"
+        mgmt_virtual_router   = "mgmt"
+        wan_zone              = "wan"
+        lan_zone              = "lan"
+        wan_ip                = "192.0.2.2/30"
+        lan_ip                = "198.51.100.1/24"
+        mgmt_ip               = "203.0.113.1/24"
+        default_gateway       = "192.0.2.1"
+        data_virtual_router   = "spoke-vr"
+        spoke_a_wan_ip        = "10.0.1.2"
+        spoke_b_wan_ip        = "10.0.2.2"
+        spoke_a_tunnel_ip     = "172.16.101.1/30"
+        spoke_b_tunnel_ip     = "172.16.102.1/30"
+      }
+    }
+
+    common = {
+      name        = "spoke-network"
+      description = "Shared device settings"
     }
   }
   template_stacks = {
