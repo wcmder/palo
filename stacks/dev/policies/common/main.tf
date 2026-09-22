@@ -33,7 +33,7 @@ module "nat" {
   } }
 }
 
-module "security" {
+module "security-pre" {
   source = "../../../modules/panos/policy/security"
   items = { common = {
     location = { device_group = { name = var.item.device_group, rulebase = "pre-rulebase" } }
@@ -59,7 +59,17 @@ module "security" {
         services              = ["application-default"]
         action                = "allow"
         log_end               = true
-      },
+      }
+    ]
+  } }
+}
+
+
+module "security-post" {
+  source = "../../../modules/panos/policy/security"
+  items = { common = {
+    location = { device_group = { name = var.item.device_group, rulebase = "post-rulebase" } }
+    rules = [
       {
         name                  = "default-deny"
         source_zones          = ["any"]
