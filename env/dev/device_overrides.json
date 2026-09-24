@@ -11,7 +11,8 @@
       "local_bgp_asn": "65001",
       "remote_bgp_asn": "65003",
       "bgp_router_id": "10.255.13.1",
-      "remote_bgp_peer_ip": "10.255.13.3"
+      "remote_bgp_peer_ip": "10.255.13.3",
+      "loopback_ip": "1.1.1.1/32"
     }
   },
   "pab": {
@@ -26,7 +27,8 @@
       "local_bgp_asn": "65002",
       "remote_bgp_asn": "65003",
       "bgp_router_id": "10.255.23.2",
-      "remote_bgp_peer_ip": "10.255.23.3"
+      "remote_bgp_peer_ip": "10.255.23.3",
+      "loopback_ip": "2.2.2.2/32"
     }
   },
   "pac": {

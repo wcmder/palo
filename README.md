@@ -692,13 +692,29 @@ below. `overrides apply` changes candidate configuration only; it does not
 commit or push. `--device` limits the override operation, not a later
 commit/push action.
 
+Both override commands require XML API read access to Panorama's candidate
+configuration. The helper reads the selected stack's device assignments,
+variable definitions and ordered template list, then reads variables from
+those templates. Stack definitions take precedence; otherwise, the first
+template defining a variable wins. This discovery supplies the XML type used
+to validate and write each override; JSON values alone do not specify it.
+
+Apply Terraform first so the stack, device assignments and variable definitions
+exist in Panorama. The helper checks that each serial belongs to its specified
+stack and each JSON variable name exists with a supported IP Netmask or AS
+Number type. Unknown names, invalid values, unsupported types and conflicting
+existing override types stop validation before writes. `overrides plan` makes
+no writes; `overrides apply` also requires XML API configuration write access.
+
 Only listed variables are managed. Omitting a variable or device leaves existing
 overrides unchanged. To remove an override and inherit the template default, set
-its JSON value to `null`, for example `"lan_ip": null`. Interface override
-values require IPv4 address/prefix strings; the gateway requires an IPv4
-address. The literal `"None"` is supported for shared template defaults, but is
-not an accepted override-file address. A reset to inheritance may inherit
-`"None"` if that is the template default. See
+its JSON value to `null`, for example `"lan_ip": null`. The helper discovers
+variable names and IP Netmask/AS Number types from Panorama; adding a variable
+requires no Python allowlist update. IP Netmask values accept IPv4/IPv6 hosts
+or prefixes. Supply prefixes for interfaces and bare addresses for peers and
+router IDs as their consumers require. Use decimal strings for ASNs.
+The literal string `"None"` is not an accepted override value; resetting to
+inheritance may still inherit an unassigned template default. See
 [per-device overrides](docs/device-overrides.md) for validation, authentication
 and update details.
 
@@ -748,6 +764,12 @@ palo dev apply \
 Use `plan` instead of `apply` to preview. These keys identify a template input
 and a device group respectively; targets without assigned serials are excluded.
 All action addresses use the `module.deployment` prefix, including commit-all.
+
+Every environment must name its root deployment module `deployment`.
+The Python CLI relies on that exact module label to discover targets and invoke
+push actions. Renaming it requires updating the CLI's Terraform addresses.
+Target pairs such as `spoke/spoke` are generated from the configured device
+groups and template inputs with shared serials; they are not hardcoded in Python.
 
 `push-all` is a Python CLI command implemented in `src/palo_cli/push_all.py`,
 not a Terraform action or a direct Python call to the Panorama API. It invokes

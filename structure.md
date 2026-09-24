@@ -59,6 +59,10 @@ values. Read this file before making changes and preserve unrelated user edits.
 - Terraform block labels and logical map keys identify code instances; they are
   distinct from names sent to Panorama. Keep keys stable, but do not require
   configured resource names to match them.
+- Name the root deployment module `deployment` in every environment. The Python
+  CLI depends on `module.deployment.deployment_items` and its push action
+  addresses. Target pairs are derived from configured group/template serial
+  intersections; do not hardcode those pairs in Python.
 
 ## Layers
 
@@ -177,6 +181,10 @@ values. Read this file before making changes and preserve unrelated user edits.
   changes. Use alternate values to verify configurable inputs are respected.
   Verify intentional fixed definitions separately. Test values are fixtures,
   not required deployment settings.
+- Discover override variable names and types from Panorama definitions. Do not
+  hardcode deployment-specific variable names or infer types from their names
+  in the CLI. Validate supported types and reject unknown definitions before
+  writing; preserve stack and ordered-template inheritance precedence.
 - Run CLI tests when changing device variable support.
 - Preserve unrelated edits and staged changes. Do not apply to Panorama as part
   of a code-only refactor.

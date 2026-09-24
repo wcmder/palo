@@ -60,6 +60,11 @@ module "variables" {
       location    = { template = { name = module.templates.names["template"] } }
       type        = { ip_netmask = var.network.default_gateway }
     }
+    loopback_ip = {
+      name     = "$loopback_ip"
+      location = { template = { name = module.templates.names["template"] } }
+      type     = { ip_netmask = var.network.loopback_ip }
+    }
   }
 }
 
@@ -75,6 +80,24 @@ module "interface_management_profiles" {
     mgmt = merge(var.item.interface_management_profiles.mgmt, {
       location = { template = { name = module.templates.names["template"] } }
     })
+  }
+}
+
+
+module "loopback" {
+  source = "../../../../modules/panos/network/loopback_interface"
+  items = {
+    wan = {
+      name = var.network.loopback_interface
+      location = { template = {
+        name = module.templates.names["template"]
+        vsys = "vsys1"
+      } }
+      ip = [{ name = module.variables.names["loopback_ip"] }]
+      interface_management_profile = (
+        module.interface_management_profiles.names["mgmt"]
+      )
+    }
   }
 }
 
@@ -185,6 +208,7 @@ module "zones" {
       network = { layer3 = [
         module.subinterfaces.names.mgmt,
         module.tunnel_interfaces.names.hub,
+        module.loopback.names.wan,
       ] }
     }
     lan = {
@@ -213,6 +237,7 @@ module "routers" {
       interfaces = [
         module.subinterfaces.names.mgmt,
         module.tunnel_interfaces.names.hub,
+        module.loopback.names.wan,
       ]
       protocol = {
         redist_profile = [{

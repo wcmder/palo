@@ -76,13 +76,35 @@ class OverridesTest(unittest.TestCase):
         b['serial'] = 'serial-b'
         b['var'] = {'wan_ip': '10.2.1.2/24', 'default_gateway': '10.2.1.1'}
         self.assertEqual(len(self.load({'paa': DEVICE, 'pab': b})), 2)
-        for field, value in [('serial', "x']/bad"), ('var', {'wan_ip': '10.0.1.2'}), ('var', {'unknown': 'x'}), ('var', {'wan_ip': 'None'}), ('var', {'wan_ip': '10.0.1.2/24', 'default_gateway': '10.2.1.1'})]:
+        for field, value in [('serial', "x']/bad"), ('var', {}),
+                             ('var', {"bad']/entry": 'x'}),
+                             ('var', {'$wan_ip': '10.0.1.2'}),
+                             ('var', {'new_name': 42})]:
             bad = copy.deepcopy(DEVICE)
             bad[field] = value
             with self.subTest(field=field, value=value), self.assertRaises(ValueError):
                 self.load({'bad': bad})
         with self.assertRaises(ValueError):
             self.load({'a': DEVICE, 'b': DEVICE})
+
+    def test_loopback_override(self):
+        device = copy.deepcopy(DEVICE)
+        device['var'] = {'loopback_ip': '192.0.2.10/32'}
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$loopback_ip"><type><ip-netmask>None</ip-netmask>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+            self.assertEqual(ov.preview(api, {'paa': device}), [])
+            self.assertIn('192.0.2.10/32', api.writes[0][1])
+        device['var']['loopback_ip'] = '192.0.2.10'
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(len(changes), 1)
 
     def test_management_override(self):
         device = copy.deepcopy(DEVICE)
@@ -94,31 +116,21 @@ class OverridesTest(unittest.TestCase):
         self.assertEqual(api.stack.findtext(".//entry[@name='$mgmt_ip']/type/ip-netmask"), '10.1.10.2/24')
         self.assertEqual(ov.preview(api, devices), [])
 
-    def test_bgp_variable_validation(self):
-        device = copy.deepcopy(DEVICE)
-        device['var'] = {
-            'local_bgp_asn': '65001',
-            'remote_bgp_asn': '65003',
-            'spoke_a_remote_bgp_asn': '65001',
-            'spoke_b_remote_bgp_asn': '65002',
-            'bgp_router_id': '10.255.13.1',
-            'remote_bgp_peer_ip': '10.255.13.3',
-        }
-        self.assertEqual(self.load({'paa': device})['paa'], device)
-        for field, value in [
-            ('local_bgp_asn', '0'),
-            ('local_bgp_asn', '4294967295'),
-            ('local_bgp_asn', '1.10'),
-            ('local_bgp_asn', 'None'),
-            ('local_bgp_asn', 65001),
-            ('bgp_router_id', '10.255.13.1/24'),
-            ('remote_bgp_peer_ip', '10.255.13.3/24'),
-        ]:
-            bad = copy.deepcopy(device)
-            bad['var'][field] = value
-            with self.subTest(field=field, value=value):
-                with self.assertRaises(ValueError):
-                    self.load({'paa': bad})
+    def test_validation_uses_inherited_types(self):
+        device = dict(DEVICE, var={'site_asn': '65001'})
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$site_asn"><type><as-number>None</as-number>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            self.assertEqual(len(ov.preview(api, {'paa': device})), 1)
+            for value in ['0', '4294967295', '1.10', 'None', 'bad']:
+                device['var']['site_asn'] = value
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    ov.preview(api, self.load({'paa': device}))
+        self.assertEqual(api.writes, [])
 
     def test_asn_apply_reset_and_type_mismatch(self):
         device = copy.deepcopy(DEVICE)
@@ -138,28 +150,31 @@ class OverridesTest(unittest.TestCase):
             changes = ov.preview(api, {'paa': device})
             self.assertEqual(ov.apply_changes(api, changes), 1)
             self.assertEqual(ov.preview(api, {'paa': device}), [])
-        wrong = template.replace('as-number', 'ip-netmask')
-        with patch(__name__ + '.TEMPLATE', wrong):
+        api.set(ov.variable_path(device, 'local_bgp_asn'),
+                '<type><ip-netmask>192.0.2.1</ip-netmask></type>')
+        with patch(__name__ + '.TEMPLATE', template):
             with self.assertRaises(ValueError):
                 ov.preview(api, {'paa': device})
 
-    def test_gre_variable_validation(self):
-        values = {
-            'tunnel_ip': '172.16.101.2/30',
-            'spoke_a_tunnel_ip': '172.16.101.1/30',
-            'spoke_b_tunnel_ip': '172.16.102.1/30',
-        }
-        device = copy.deepcopy(DEVICE)
-        device['var'] = values
-        self.assertEqual(self.load({'paa': device})['paa']['var'], values)
-        for field, value in [
-            ('tunnel_ip', '172.16.101.2'),
-            ('spoke_a_tunnel_ip', '172.16.101.1'),
-        ]:
-            bad = copy.deepcopy(device)
-            bad['var'][field] = value
-            with self.subTest(field=field), self.assertRaises(ValueError):
-                self.load({'paa': bad})
+    def test_ip_validation_accepts_ipv4_ipv6_hosts_and_prefixes(self):
+        device = dict(DEVICE, var={})
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$new_address"><type><ip-netmask>None</ip-netmask>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            for value in ['192.0.2.1', '192.0.2.1/32',
+                          '2001:db8::1', '2001:db8::1/128']:
+                device['var'] = {'new_address': value}
+                changes = ov.preview(api, self.load({'paa': device}))
+                self.assertEqual(ov.apply_changes(api, changes), 1)
+            for value in ['192.0.2.999', '192.0.2.1/99', 'None',
+                          '2001:db8::1/129', 'fe80::1%eth0']:
+                device['var'] = {'new_address': value}
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    ov.preview(api, self.load({'paa': device}))
 
     def test_gre_override_apply(self):
         device = copy.deepcopy(DEVICE)
@@ -174,6 +189,88 @@ class OverridesTest(unittest.TestCase):
             changes = ov.preview(api, self.load({'paa': device}))
             self.assertEqual(ov.apply_changes(api, changes), 1)
             self.assertEqual(ov.preview(api, {'paa': device}), [])
+
+    def test_arbitrary_name_and_no_field_name_type_inference(self):
+        device = dict(DEVICE, var={'new_site_number': '65042'})
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$new_site_number"><type><as-number>None</as-number>'
+            '</type></entry></variable>',
+        )
+        api = FakeAPI()
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(changes[0]['type'], 'as-number')
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+            self.assertIn('<as-number>65042</as-number>', api.writes[0][1])
+
+    def test_missing_or_unsupported_definition_prevents_all_writes(self):
+        for definition in [
+            '',
+            '<entry name="$new"><type><fqdn>example.com</fqdn></type></entry>',
+            '<entry name="$new"><type><pre-shared-key>'
+            '<key>secret</key></pre-shared-key></type></entry>',
+        ]:
+            api = FakeAPI()
+            template = TEMPLATE.replace('</variable>',
+                                        definition + '</variable>')
+            device = dict(DEVICE, var={'new': '192.0.2.1'})
+            with patch(__name__ + '.TEMPLATE', template):
+                with self.assertRaises(ValueError):
+                    ov.preview(api, {'valid': DEVICE, 'bad': device})
+            self.assertEqual(api.writes, [])
+
+    def test_stack_definition_takes_precedence(self):
+        api = FakeAPI()
+        stack = api.stack.find('./result/entry')
+        variables = ET.SubElement(stack, 'variable')
+        variables.append(ET.fromstring(
+            '<entry name="$site"><type><as-number>65000</as-number>'
+            '</type></entry>'
+        ))
+        template = TEMPLATE.replace(
+            '</variable>',
+            '<entry name="$site"><type><ip-netmask>None</ip-netmask>'
+            '</type></entry></variable>',
+        )
+        device = dict(DEVICE, var={'site': '65001'})
+        with patch(__name__ + '.TEMPLATE', template):
+            changes = ov.preview(api, self.load({'paa': device}))
+            self.assertEqual(changes[0]['type'], 'as-number')
+            self.assertEqual(ov.apply_changes(api, changes), 1)
+
+    def test_template_order_determines_inherited_type(self):
+        api = FakeAPI()
+        members = api.stack.find('./result/entry/templates')
+        ET.SubElement(members, 'member').text = 'lower-priority'
+        original_get = api.get
+
+        def get(path):
+            if '/template/' not in path:
+                return original_get(path)
+            kind = ('ip-netmask' if 'lower-priority' in path
+                    else 'as-number')
+            return ET.fromstring(
+                '<response><result><variable><entry name="$custom">'
+                '<type><' + kind + '>None</' + kind + '></type>'
+                '</entry></variable></result></response>'
+            )
+
+        api.get = get
+        device = dict(DEVICE, var={'custom': '65001'})
+        changes = ov.preview(api, self.load({'paa': device}))
+        self.assertEqual(changes[0]['type'], 'as-number')
+        self.assertEqual(ov.apply_changes(api, changes), 1)
+
+    def test_inherited_type_change_prevents_writes(self):
+        api = FakeAPI()
+        device = dict(DEVICE, var={'lan_ip': '192.0.2.1'})
+        changes = ov.preview(api, self.load({'paa': device}))
+        changed = TEMPLATE.replace('ip-netmask', 'as-number')
+        with patch(__name__ + '.TEMPLATE', changed):
+            with self.assertRaises(ValueError):
+                ov.apply_changes(api, changes)
+        self.assertEqual(api.writes, [])
 
     def test_duplicate_json_keys(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate'):

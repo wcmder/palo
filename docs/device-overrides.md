@@ -1,6 +1,6 @@
 # Per-device variable overrides
 
-The shared template takes explicit defaults for `$wan_ip`, `$lan_ip`,
+Each role template takes explicit defaults for `$wan_ip`, `$lan_ip`,
 `$mgmt_ip`, and `$default_gateway` from root tfvars. Interface addresses
 are complete address/prefix strings or `"None"` for unassigned variables.
 They pass through directly; missing address fields fail evaluation.
@@ -81,7 +81,7 @@ palo dev overrides plan --file device_overrides.staging.json
 
 Relative file paths resolve under `env/dev`, regardless of the shell's current
 directory. Absolute paths are also accepted. Each future environment, such as
-`dev2`, gets its own `palo.json` and override file.
+`prod`, gets its own `palo.json` and override file.
 
 `--device paa` limits **override writes only**. The existing `spoke` commit/push
 action still targets every serial in that Terraform entry. Use Panorama's
@@ -98,18 +98,38 @@ remove an override and resume inheritance, use JSON `null`, for example:
 ```
 
 If the inherited template value is `None`, the reset leaves that variable
-unassigned. Supply the required values before pushing. Override IPs require
-CIDR notation; the gateway is an IPv4 address. When both WAN IP and gateway
-are provided, the helper checks they are different addresses in the same subnet.
+unassigned. Supply the required values before pushing.
 
-The helper validates every selected target before writing, checks that the
-serial belongs to the stack and the variable has the expected IP Netmask or
-AS Number type, then
-updates only the selected variable entries. It rechecks each old value before
-writing and reads back each result. This is not an atomic transaction or a
-Panorama configuration lock. If a write or verification fails, earlier writes
-may remain in candidate configuration. Run `overrides plan` again to reconcile;
-there is no automatic retry, commit, push, or rollback.
+Variable names are discovered from the assigned stack and its templates.
+JSON keys omit the `$` prefix. Stack definitions take precedence, followed by
+member templates in their configured order. A new variable such as
+`loopback_ip` requires no Python change: create it in Terraform, apply its
+Panorama definition, and add the device value to the JSON file.
+
+Validation uses the inherited type, not the variable's name:
+
+- `ip-netmask`: IPv4 or IPv6 host addresses, with or without a prefix.
+- `as-number`: decimal strings from `"1"` to `"4294967294"`.
+- `null`: remove the existing override and inherit the template value.
+
+Unknown names, unsupported types, malformed values, and existing overrides
+whose types conflict with their definitions fail before writes. Other types,
+including secret or structured variables, are not supported by this helper.
+The literal string `"None"` is not accepted as an IP/ASN override value.
+
+IP Netmask metadata does not distinguish interface addresses from peer IPs or
+router IDs. Supply prefixes for interfaces (typically `/32` for IPv4 loopbacks)
+and bare addresses for router IDs or peers as required by their consumers.
+Panorama validates those usage constraints. The helper no longer infers them
+from field names or enforces a relationship between WAN and gateway fields.
+
+The helper validates every selected target and its stack assignment before
+writing, then repeats the preview to detect definition/value changes. It also
+rechecks each old value before writing and reads back each result. This is not
+an atomic transaction or a Panorama configuration lock. If a write or
+verification fails, earlier writes may remain in candidate configuration.
+Run `overrides plan` again to reconcile; there is no automatic retry, commit,
+push, or rollback.
 
 ## API and authentication
 
@@ -136,14 +156,15 @@ The override helper also accepts `tunnel_ip`, `spoke_a_tunnel_ip`,
 and `spoke_b_tunnel_ip`.
 
 Tunnel interface addresses require prefixes. GRE sources use the WAN
-interface's `wan_ip` address/prefix override. See [GRE setup](gre.md) for per-device assignments.
+interface's `wan_ip` address/prefix override. See [GRE setup](gre.md) for
+per-device assignments.
 
 ## BGP variables
 
-The helper supports decimal-string ASNs through `local_bgp_asn`,
+The current templates define AS Number variables named `local_bgp_asn`,
 `remote_bgp_asn`, `spoke_a_remote_bgp_asn`, and `spoke_b_remote_bgp_asn`.
 It writes these with Panorama's `as-number` type and rejects a mismatched
-inherited variable type. Values must be strings from `"1"` to `"4294967294"`.
+existing override type. Values must be strings from `"1"` to `"4294967294"`.
 
 `bgp_router_id`, `remote_bgp_peer_ip`, `spoke_a_remote_bgp_peer_ip`, and
 `spoke_b_remote_bgp_peer_ip` require bare IPv4 addresses. The tunnel variables

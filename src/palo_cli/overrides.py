@@ -9,18 +9,6 @@ from pathlib import Path
 from .panorama_api import APIError, PanoramaAPI
 
 BASE = "/config/devices/entry[@name='localhost.localdomain']"
-ASN_FIELDS = {
-    'local_bgp_asn', 'remote_bgp_asn',
-    'spoke_a_remote_bgp_asn', 'spoke_b_remote_bgp_asn',
-}
-HOST_FIELDS = {
-    'default_gateway', 'bgp_router_id', 'remote_bgp_peer_ip',
-    'spoke_a_remote_bgp_peer_ip', 'spoke_b_remote_bgp_peer_ip',
-}
-FIELDS = HOST_FIELDS | ASN_FIELDS | {
-    'wan_ip', 'lan_ip', 'mgmt_ip', 'tunnel_ip',
-    'spoke_a_tunnel_ip', 'spoke_b_tunnel_ip',
-}
 
 
 def unique_object(pairs):
@@ -55,41 +43,18 @@ def load_devices(path, selected=None):
             raise ValueError('Each serial must occur only once in the override file.')
         seen.add(item['serial'])
         values = item['var']
-        if not isinstance(values, dict) or not values or set(values) - FIELDS:
-            raise ValueError(name + ': unsupported variable; allowed: ' +
-                             ', '.join(sorted(FIELDS)))
+        if not isinstance(values, dict) or not values:
+            raise ValueError(name + ': var must be a non-empty object.')
         for field, value in values.items():
-            if value is None:  # Explicit reset to inheritance.
-                continue
-            try:
-                if not isinstance(value, str):
-                    raise ValueError()
-                if field in ASN_FIELDS:
-                    if not re.fullmatch(r'[0-9]+', value):
-                        raise ValueError()
-                    if not 1 <= int(value) <= 4294967294:
-                        raise ValueError()
-                elif field in HOST_FIELDS:
-                    ipaddress.IPv4Address(value)
-                else:
-                    if '/' not in value:
-                        raise ValueError()
-                    ipaddress.IPv4Interface(value)
-            except ValueError:
-                expected = 'IPv4 address/prefix'
-                if field in ASN_FIELDS:
-                    expected = 'an AS number string from 1 to 4294967294'
-                elif field in HOST_FIELDS:
-                    expected = 'a bare IPv4 address'
+            # Names become XPath predicates; JSON uses names without "$".
+            if not re.fullmatch(r'[A-Za-z0-9_.-]+', field):
+                raise ValueError(name + ': invalid variable name.')
+            if value is not None and (
+                not isinstance(value, str) or not value.strip()
+            ):
                 raise ValueError(
-                    name + ': ' + field + ' requires ' + expected + '.'
-                ) from None
-        wan, gateway = values.get('wan_ip'), values.get('default_gateway')
-        if wan is not None and gateway is not None:
-            interface = ipaddress.IPv4Interface(wan)
-            address = ipaddress.IPv4Address(gateway)
-            if address not in interface.network or address == interface.ip:
-                raise ValueError(name + ': gateway must be a different address in the WAN subnet.')
+                    name + ': ' + field + ' requires a string or null.'
+                )
     if selected:
         if selected not in devices:
             raise ValueError('Unknown device key: ' + selected)
@@ -106,17 +71,52 @@ def variable_path(item, field):
     return stack_path(item['template_stack']) + "/devices/entry[@name='%s']/variable/entry[@name='$%s']" % (item['serial'], field)
 
 
-def variable_type(field):
-    return 'as-number' if field in ASN_FIELDS else 'ip-netmask'
+def variable_type(entry):
+    kind = entry.find('type')
+    if kind is None or len(kind) != 1 or len(kind[0]):
+        raise ValueError('Variable must have exactly one scalar type.')
+    result = kind[0].tag
+    if result not in {'ip-netmask', 'as-number'}:
+        raise ValueError(
+            'Unsupported Panorama variable type: ' + result +
+            '. Supported types: ip-netmask, as-number.'
+        )
+    return result
 
 
-def entry_value(entry, expected_type='ip-netmask'):
+def validate_value(value, kind):
+    if value is None:  # Explicit reset to inheritance.
+        return
+    try:
+        if not isinstance(value, str) or value != value.strip():
+            raise ValueError()
+        if kind == 'as-number':
+            if not re.fullmatch(r'[0-9]+', value):
+                raise ValueError()
+            if not 1 <= int(value) <= 4294967294:
+                raise ValueError()
+        elif kind == 'ip-netmask':
+            # Panorama's type permits host addresses and address/prefix values.
+            # Its definition does not describe how the variable is consumed.
+            if '%' in value:
+                raise ValueError()
+            ipaddress.ip_interface(value)
+        else:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('Invalid value for Panorama type ' + kind + '.') \
+            from None
+
+
+def entry_value(entry, expected_type):
     if entry is None:
         return None
-    kind = entry.find('type')
-    if kind is None or len(kind) != 1 or kind[0].tag != expected_type:
-        raise ValueError('Existing override has an unexpected variable type; no automatic conversion is supported.')
-    return kind[0].text or ''
+    if variable_type(entry) != expected_type:
+        raise ValueError(
+            'Existing override type differs from its inherited definition; '
+            'no automatic conversion is supported.'
+        )
+    return entry.find('type')[0].text or ''
 
 
 def preview(api, devices):
@@ -146,21 +146,32 @@ def preview(api, devices):
             definition = definitions.get(variable)
             if definition is None:
                 raise ValueError(name + ': missing inherited variable ' + variable)
-            kind = variable_type(field)
-            entry_value(definition, kind)
+            try:
+                kind = variable_type(definition)
+                validate_value(desired, kind)
+            except ValueError as exc:
+                raise ValueError(name + ': ' + variable + ': ' + str(exc)) \
+                    from None
             current = next((e for e in device.findall('./variable/entry') if e.get('name') == variable), None)
             before = entry_value(current, kind)
             if before != desired:
-                changes.append({'device': name, 'item': item, 'field': field, 'before': before, 'after': desired})
+                changes.append({
+                    'device': name, 'item': item, 'field': field,
+                    'type': kind, 'before': before, 'after': desired,
+                })
     return changes
 
 
 def apply_changes(api, changes):
+    # Recheck inherited types and all selected values before the first write.
+    devices = {change['device']: change['item'] for change in changes}
+    if preview(api, devices) != changes:
+        raise ValueError('Overrides or definitions changed since preview.')
     completed = 0
     for change in changes:
         path = variable_path(change['item'], change['field'])
         # Stop if another administrator changed a value since preview.
-        expected_type = variable_type(change['field'])
+        expected_type = change['type']
         current = entry_value(
             api.get(path).find('./result/entry'), expected_type
         )

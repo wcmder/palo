@@ -31,6 +31,8 @@ templates = {
       default_gateway       = "None"
       lan_ip                = "None"
       mgmt_ip               = "None"
+      loopback_interface    = "loopback.10"
+      loopback_ip           = "None"
 
       hub_wan_ip = "10.0.3.2"
       tunnel_ip  = "None"
