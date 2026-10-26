@@ -86,6 +86,33 @@ def preflight(root, child):
         ip = str(ipaddress.ip_address(config.get('panorama_ip', config['hostname'])))
     except (ValueError, TypeError):
         raise OnboardingError('Set panorama_ip in palo.json to the IP firewalls use to reach Panorama.') from None
+    secondary_ip = config.get('secondary_panorama_ip')
+    if 'secondary_panorama_ip' in config:
+        try:
+            if not isinstance(secondary_ip, str):
+                raise ValueError()
+            secondary_ip = str(ipaddress.ip_address(secondary_ip))
+            if secondary_ip == ip:
+                raise ValueError()
+        except ValueError:
+            raise OnboardingError(
+                'secondary_panorama_ip must be a different, valid IP address.'
+            ) from None
+    secondary = None
+    if secondary_ip:
+        try:
+            secondary_api = PanoramaAPI(
+                dict(child, PANOS_HOSTNAME=secondary_ip)
+            )
+            secondary = {
+                'ip': secondary_ip, 'api': secondary_api,
+                'connected': connected_serials(secondary_api),
+            }
+        except APIError as exc:
+            raise OnboardingError(
+                'Secondary Panorama: ' + (exc.diagnostic or
+                'API request failed; check connectivity and permissions.')
+            ) from None
     print('[palo] Inspecting Panorama connectivity and managed devices...', flush=True)
     try:
         panorama = PanoramaAPI(child)
@@ -108,16 +135,33 @@ def preflight(root, child):
                 raise OnboardingError('Two inventory entries returned the same serial; fix the device map.')
             seen.add(serial)
             # Check candidate and running settings. Never silently migrate another manager.
+            settings_match = True
             for action in ['get', 'show']:
                 response = api.request(type='config', action=action, xpath=SYSTEM)
                 for field in ['panorama/local-panorama/panorama-server', 'panorama/local-panorama/panorama-server-2', 'panorama-server', 'panorama-server-2']:
                     server = response.findtext('./result/system/' + field)
-                    if server and server != ip:
+                    if server and server not in {ip, secondary_ip}:
                         raise OnboardingError(f'{name}: already configured for another Panorama or HA peer; migration is not supported by this command.')
+                if secondary:
+                    base = './result/system/panorama/local-panorama/'
+                    first = (
+                        response.findtext(base + 'panorama-server') or
+                        response.findtext('./result/system/panorama-server')
+                    )
+                    second = (response.findtext(base + 'panorama-server-2') or
+                              response.findtext(
+                                  './result/system/panorama-server-2'))
+                    settings_match &= first == ip and second == secondary_ip
         except APIError as exc:
             raise OnboardingError(f'{name} ({host}): ' + (exc.diagnostic or 'API request failed; check connectivity and API permissions.')) from None
         firewalls[name] = {'api': api, 'host': host, 'serial': serial, 'connected': serial in known, 'registered': serial in registered}
-    return panorama, ip, firewalls
+        if secondary:
+            firewalls[name]['primary_connected'] = serial in known
+            firewalls[name]['connected'] = (
+                serial in known and serial in secondary['connected']
+                and settings_match
+            )
+    return panorama, ip, firewalls, secondary
 
 
 def extract_key(response):
@@ -242,18 +286,36 @@ def run(options, root, child):
     path = root / 'onboarding.json'
     stage = 'preflight'
     try:
-        panorama, ip, devices = preflight(root, child)
+        panorama, ip, devices, secondary = preflight(root, child)
         pending = {name: d for name, d in devices.items() if not d['connected']}
         journal = {'panorama': child['PANOS_HOSTNAME'], 'panorama_ip': ip, 'devices': {}, 'jobs': {}}
         if path.exists():
             journal = json.loads(path.read_text(), object_pairs_hook=unique_object)
             if journal.get('panorama') != child['PANOS_HOSTNAME'] or journal.get('panorama_ip') != ip or not isinstance(journal.get('devices'), dict) or not isinstance(journal.get('jobs', {}), dict):
                 raise OnboardingError('onboarding.json does not match this Panorama; review the saved file.')
+        secondary_ip = secondary['ip'] if secondary else None
+        saved_secondary = journal.get('secondary_panorama_ip')
+        if saved_secondary != secondary_ip:
+            if saved_secondary or journal.get('jobs'):
+                raise OnboardingError(
+                    'Secondary Panorama differs from onboarding.json; '
+                    'resolve saved jobs/settings before retrying.'
+                )
+        if secondary:
+            journal['secondary_panorama_ip'] = secondary_ip
         keys = journal.setdefault('registration_keys', {})
         legacy = journal.pop('registration_key', None)
         if legacy:
             keys.setdefault(legacy['key_name'], legacy)
-        planned_batches = batches(pending, journal, options)
+        needing_keys = {
+            name: d for name, d in pending.items()
+            if not d.get('primary_connected', False)
+        }
+        planned_batches = batches(needing_keys, journal, options)
+        if secondary:
+            print('[palo] HA onboarding: configure both Panorama addresses; '
+                  'registration and commits use the primary peer. '
+                  'Healthy HA configuration and CA synchronization required.')
         for name, device in pending.items():
             saved = journal['devices'].get(name, {})
             if saved and (saved.get('serial') != device['serial'] or saved.get('host') != device['host']):
@@ -293,10 +355,32 @@ def run(options, root, child):
                 stage = f'{name}: configuring Panorama and committing firewall'
                 d['api'].request(type='op', cmd=xml('request', {'authkey/set': key}))
                 # Merge only the Panorama address; preserve other system settings.
-                d['api'].set(SYSTEM + '/panorama', xml('local-panorama', {'panorama-server': ip}))
+                addresses = {'panorama-server': ip}
+                if secondary:
+                    addresses['panorama-server-2'] = secondary_ip
+                d['api'].set(
+                    SYSTEM + '/panorama', xml('local-panorama', addresses)
+                )
                 commit(d['api'], 'firewall:' + name, journal, path, options.timeout)
                 journal['devices'][name]['stage'] = 'firewall_committed'
                 save_json(path, journal)
+        # Already registered with the primary: add the peer without replacing
+        # the firewall's registration key or writing to the passive Panorama.
+        for name, d in pending.items():
+            if name in needing_keys:
+                continue
+            stage = f'{name}: configuring secondary Panorama'
+            journal['devices'][name] = {
+                'serial': d['serial'], 'host': d['host'],
+                'stage': 'configuring_secondary',
+            }
+            save_json(path, journal)
+            d['api'].set(SYSTEM + '/panorama', xml('local-panorama', {
+                'panorama-server': ip, 'panorama-server-2': secondary_ip,
+            }))
+            commit(d['api'], 'firewall:' + name, journal, path, options.timeout)
+            journal['devices'][name]['stage'] = 'firewall_committed'
+            save_json(path, journal)
         if not options.connection_check:
             print('[palo] Onboarding configuration committed. Connection check skipped; devices may still be connecting. serial.json and private onboarding.json saved.')
             return 0
@@ -306,6 +390,8 @@ def run(options, root, child):
         print('[palo] Waiting for Panorama to report the firewalls connected...', flush=True)
         while remaining:
             connected = connected_serials(panorama)
+            if secondary:
+                connected &= connected_serials(secondary['api'])
             for name in list(remaining):
                 if remaining[name]['serial'] in connected:
                     journal['devices'][name]['stage'] = 'connected'

@@ -35,10 +35,17 @@ class OnboardTest(unittest.TestCase):
             return response()
         self.panorama.request.side_effect = pano_request
         self.firewall.request.return_value = response()
+        self.secondary = None
         self.output = io.StringIO()
 
     def execute(self):
-        with patch.object(onboard, 'preflight', return_value=(self.panorama, '192.0.2.1', self.devices)), contextlib.redirect_stdout(self.output), contextlib.redirect_stderr(self.output):
+        result = (self.panorama, '192.0.2.1', self.devices, self.secondary)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(
+                onboard, 'preflight', return_value=result
+            ))
+            stack.enter_context(contextlib.redirect_stdout(self.output))
+            stack.enter_context(contextlib.redirect_stderr(self.output))
             return onboard.run(self.options, self.root, self.child)
 
     def test_complete_workflow_persists_private_keys_and_configures_firewall(self):
@@ -232,6 +239,106 @@ class OnboardTest(unittest.TestCase):
                 onboard.preflight(self.root, self.child)
         self.panorama.set.assert_not_called()
         self.firewall.set.assert_not_called()
+
+    def enable_secondary(self):
+        peer = Mock()
+        peer.request.return_value = response(
+            '<devices><entry name="001234"><connected>yes</connected>'
+            '</entry></devices>'
+        )
+        self.secondary = {'ip': '192.0.2.10', 'api': peer,
+                          'connected': set()}
+        return peer
+
+    def test_ha_new_firewall_configures_both_and_checks_both_peers(self):
+        peer = self.enable_secondary()
+        self.options.connection_check = True
+        self.assertEqual(self.execute(), 0)
+        settings = ET.fromstring(self.firewall.set.call_args.args[1])
+        self.assertEqual(settings.findtext('panorama-server'), '192.0.2.1')
+        self.assertEqual(settings.findtext('panorama-server-2'), '192.0.2.10')
+        peer.set.assert_not_called()
+        peer.request.assert_called_once()
+        journal = json.loads((self.root / 'onboarding.json').read_text())
+        self.assertEqual(journal['secondary_panorama_ip'], '192.0.2.10')
+        self.assertEqual(journal['devices']['pa-a']['stage'], 'connected')
+
+    def test_ha_existing_primary_connection_does_not_replace_key(self):
+        self.enable_secondary()
+        self.devices['pa-a']['primary_connected'] = True
+        self.assertEqual(self.execute(), 0)
+        self.panorama.request.assert_not_called()
+        self.panorama.set.assert_not_called()
+        self.assertTrue(self.firewall.set.called)
+        self.assertFalse(any(
+            'authkey' in c.kwargs.get('cmd', '')
+            for c in self.firewall.request.call_args_list
+        ))
+
+    def test_ha_secondary_disconnected_times_out(self):
+        peer = self.enable_secondary()
+        peer.request.return_value = response('<devices/>')
+        self.options.connection_check = True
+        with patch.object(onboard.time, 'monotonic', side_effect=[0, 2]):
+            self.assertEqual(self.execute(), 1)
+        self.assertIn('Connection verification timed out',
+                      self.output.getvalue())
+
+    def test_ha_plan_no_writes(self):
+        peer = self.enable_secondary()
+        self.options.operation = 'plan'
+        self.assertEqual(self.execute(), 0)
+        self.assertEqual(list(self.root.iterdir()), [])
+        peer.request.assert_not_called()
+        self.firewall.set.assert_not_called()
+
+    def test_ha_journal_peer_change_is_rejected_before_writes(self):
+        self.enable_secondary()
+        self.assertEqual(self.execute(), 0)
+        self.secondary['ip'] = '192.0.2.11'
+        self.firewall.reset_mock()
+        self.panorama.reset_mock()
+        self.assertEqual(self.execute(), 1)
+        self.firewall.set.assert_not_called()
+        self.panorama.request.assert_not_called()
+
+    def test_invalid_secondary_address_rejected_before_api_calls(self):
+        for value in ['', None, 123, '192.0.2.1', 'not-an-ip']:
+            (self.root / 'palo.json').write_text(json.dumps({
+                'hostname': '192.0.2.1', 'secondary_panorama_ip': value,
+            }))
+            with patch.object(onboard, 'PanoramaAPI') as api:
+                with self.assertRaisesRegex(ValueError,
+                                            'secondary_panorama_ip'):
+                    onboard.preflight(self.root, self.child)
+                api.assert_not_called()
+
+    def test_ha_preflight_detects_missing_and_present_peer_settings(self):
+        peer = self.enable_secondary()
+        (self.root / 'palo.json').write_text(json.dumps({
+            'hostname': '192.0.2.1',
+            'secondary_panorama_ip': '192.0.2.10',
+            'device': {'pa-a': '192.0.2.2'},
+        }))
+        self.panorama.get.return_value = response('<devices/>')
+        for configured in [False, True]:
+            extra = ('<panorama-server-2>192.0.2.10</panorama-server-2>'
+                     if configured else '')
+            settings = response(
+                '<system><panorama><local-panorama>'
+                '<panorama-server>192.0.2.1</panorama-server>' + extra +
+                '</local-panorama></panorama></system>'
+            )
+            self.firewall.request.side_effect = [
+                response('<system><serial>001234</serial></system>'),
+                settings, settings,
+            ]
+            with patch.object(onboard, 'PanoramaAPI', side_effect=[
+                peer, self.panorama, self.firewall,
+            ]), contextlib.redirect_stdout(self.output):
+                _, _, devices, _ = onboard.preflight(self.root, self.child)
+            self.assertTrue(devices['pa-a']['primary_connected'])
+            self.assertEqual(devices['pa-a']['connected'], configured)
 
     def test_help_skips_keyring(self):
         from palo_cli import cli

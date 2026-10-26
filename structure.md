@@ -186,6 +186,11 @@ values. Read this file before making changes and preserve unrelated user edits.
   in the CLI. Validate supported types and reject unknown definitions before
   writing; preserve stack and ordered-template inheritance precedence.
 - Run CLI tests when changing device variable support.
+- Keep secondary Panorama onboarding optional via `secondary_panorama_ip` in
+  the environment's `palo.json`. Register through the primary and rely on an
+  existing synchronized HA pair. Configure both firewall manager addresses,
+  preserve primary trust when adding a secondary, and verify both connections
+  when requested. Do not silently migrate managers or select a different peer.
 - Preserve unrelated edits and staged changes. Do not apply to Panorama as part
   of a code-only refactor.
 - Resource-address changes require migration planning if already applied. Use

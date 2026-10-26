@@ -331,8 +331,8 @@ restricted to its serials. Keys are generated as batches start and saved once in
 commits Panorama, installs each firewall's key and Panorama IP, commits each
 firewall, and finishes after the commits succeed. The final connection wait is
 skipped by default; initial preflight still checks for already-connected
-devices. Already-connected devices are skipped. No Security/NAT or template push
-is run. Device-group and template-stack assignment remains in Terraform.
+devices. Fully configured, connected devices are skipped. No policy/template
+push is run. Device-group and template-stack assignment remains in Terraform.
 
 To also wait for Panorama to report the devices connected:
 
@@ -371,8 +371,8 @@ its firewalls. A failure stops later batches. Choose a key lifetime long enough
 for a batch's commits and initial connections.
 
 Retries retain valid saved key groups, even when only some devices remain
-pending. Already-connected firewalls are skipped. New serials form new batches;
-expired keys or a changed `--key-count` cause replacement keys to be generated.
+pending. Fully configured, connected firewalls are skipped. New serials form
+new batches; expired keys or a changed `--key-count` cause replacement keys to be generated.
 `--batch-size` accepts 1–100 and is capped by `--key-count` (also 1–100). The
 former single `registration_key` record is migrated and reused when valid.
 Legacy per-device secrets are removed locally once a batch key is saved; old
@@ -394,7 +394,37 @@ The Panorama IP defaults to `hostname` in `palo.json`. If that is a DNS name or
 API endpoint with a port, add `"panorama_ip": "172.16.1.99"` with the address
 the firewalls should use to reach Panorama. Direct HTTPS API access to all
 devices and firewall-to-Panorama management connectivity must be available. The
-helper currently handles one Panorama server, not HA migration.
+helper also supports an optional secondary Panorama in an existing HA pair.
+
+For HA onboarding, add this optional field to `palo.json`:
+
+```json
+"secondary_panorama_ip": "172.16.1.100"
+```
+
+Omit the field for a single Panorama. When supplied, it must be a valid IP
+different from `panorama_ip`. Set `hostname` and `panorama_ip` to the
+primary-active peer for onboarding. The helper writes `panorama-server` and
+`panorama-server-2` on each firewall. It also adds the secondary address to
+firewalls already connected to the primary, without replacing their auth key.
+
+This follows the documented HA onboarding workflow: generate registration keys
+and register serials on the primary; rely on the existing HA configuration and
+CA synchronization for the secondary. The helper does not configure Panorama
+HA or independently write/commit the passive peer. If secondary trust is broken
+and requires a separate registration key, repair that connection separately.
+
+Preflight requires HTTPS API access to both peers using the same keyring
+credentials and TLS verification setting. The secondary API endpoint is its
+configured IP, so its certificate must cover that IP when verification is on.
+With `--connection-check`, success requires each pending firewall to appear
+connected on both peers. Without it, success confirms configuration commits,
+not secondary connectivity. Automatic active-peer selection is not performed.
+
+The journal records the secondary IP. Adding it to an existing single-Panorama
+journal is supported after pending jobs are resolved. Changing or removing a
+recorded secondary is rejected; existing unrelated Panorama addresses are never
+silently replaced.
 
 References: [Palo Alto onboarding workflow][onboarding-workflow],
 [registration key commands][registration-keys], and
