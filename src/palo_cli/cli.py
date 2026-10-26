@@ -44,6 +44,9 @@ def prepare(argv, workspace, environ, backend=None):
         skip_verify = config.get("skip_verify_certificate", False)
         if not isinstance(skip_verify, bool):
             raise ValueError("skip_verify_certificate must be a JSON boolean (true or false).")
+        auto_detect = config.get("ha_auto_detect", False)
+        if not isinstance(auto_detect, bool):
+            raise ValueError("ha_auto_detect must be a JSON boolean.")
         from .credentials import fetch
         if backend is None:
             import keyring
@@ -54,6 +57,9 @@ def prepare(argv, workspace, environ, backend=None):
         child = {k: v for k, v in child.items() if not k.startswith('PANOS_')}
         child.update(PANOS_HOSTNAME=hostname, PANOS_USERNAME=credential['username'], PANOS_PASSWORD=credential['password'],
                      PANOS_SKIP_VERIFY_CERTIFICATE=str(skip_verify).lower())
+        if auto_detect and command != "serials":
+            from .ha import select_active
+            child['PANOS_HOSTNAME'] = select_active(config, child, command)
     return ["terraform", f"-chdir={root}", command, *args], child
 
 

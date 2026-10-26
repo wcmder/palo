@@ -3,6 +3,7 @@
   "keyring_service": "panos_api_admin",
   "keyring_username": "admin",
   "skip_verify_certificate": true,
+  "ha_auto_detect": false,
   "device": {
     "pa-a": "172.16.1.119",
     "pa-b": "172.16.1.124",

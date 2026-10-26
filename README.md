@@ -419,12 +419,57 @@ credentials and TLS verification setting. The secondary API endpoint is its
 configured IP, so its certificate must cover that IP when verification is on.
 With `--connection-check`, success requires each pending firewall to appear
 connected on both peers. Without it, success confirms configuration commits,
-not secondary connectivity. Automatic active-peer selection is not performed.
+not secondary connectivity. Active-peer selection is optional, as below.
 
 The journal records the secondary IP. Adding it to an existing single-Panorama
 journal is supported after pending jobs are resolved. Changing or removing a
 recorded secondary is rejected; existing unrelated Panorama addresses are never
 silently replaced.
+
+### Automatic active Panorama selection
+
+To keep both endpoints fixed and select the active API peer automatically, add
+these fields to `palo.json` alongside `hostname`:
+
+```json
+"secondary_panorama_ip": "172.16.1.100",
+"ha_auto_detect": true
+```
+
+`ha_auto_detect` defaults to `false`. When enabled, the CLI authenticates to
+both endpoints with the same keyring credentials and TLS settings, then sends
+an XML API operational request to `POST https://<peer>/api/`:
+
+```text
+type=op
+cmd=<show><high-availability><state/></high-availability></show>
+```
+
+Panorama reports its local state under `result/local-info/state`. The helper
+checks reciprocal local/peer serial numbers and agreement on each peer's state.
+Exactly one must be active and the other passive. It stops before launching the
+command if either API is unreachable, authentication fails, HA is disabled,
+identities do not match, or status is incomplete or inconsistent. This includes
+both-active, neither-active and transitional states. Both management APIs must
+remain reachable; this does not provide automatic operation through a peer
+outage. Retry after connectivity and HA status are restored.
+
+The selected endpoint is printed and passed as `PANOS_HOSTNAME` for Terraform,
+overrides and push-all. JSON configuration, firewall manager addresses and
+Terraform state are unchanged. Selection happens once per command; there is no
+mid-command peer switching or automatic replay of writes. If failover interrupts
+an operation, inspect jobs and configuration before retrying. Saved Terraform
+plans may retain provider configuration; generate a fresh plan after failover.
+
+Offline commands and help do not query HA. `serials` connects directly to the
+firewalls and does not query Panorama HA either. For `onboard`, the configured
+primary must be active; if the secondary is active, onboarding stops rather
+than swapping addresses or registering through the wrong peer. Keep `hostname`
+(and `panorama_ip`, if supplied) assigned to the primary for that workflow.
+
+API reference: [Palo Alto Networks SDK HA status handling][ha-status-sdk].
+
+[ha-status-sdk]: https://github.com/PaloAltoNetworks/pan-os-python/blob/develop/panos/base.py
 
 References: [Palo Alto onboarding workflow][onboarding-workflow],
 [registration key commands][registration-keys], and

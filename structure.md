@@ -190,7 +190,13 @@ values. Read this file before making changes and preserve unrelated user edits.
   the environment's `palo.json`. Register through the primary and rely on an
   existing synchronized HA pair. Configure both firewall manager addresses,
   preserve primary trust when adding a secondary, and verify both connections
-  when requested. Do not silently migrate managers or select a different peer.
+  when requested. Do not silently migrate managers.
+- Make active-peer discovery opt-in with `ha_auto_detect`. Verify both Panorama
+  identities and reciprocal HA states before choosing one endpoint per command.
+  Reject unavailable, ambiguous or inconsistent peers; never replay writes on
+  another peer automatically. Keep onboarding manager addresses stable and
+  require the configured primary to be active for onboarding. Keep offline
+  commands and direct firewall serial discovery independent of HA queries.
 - Preserve unrelated edits and staged changes. Do not apply to Panorama as part
   of a code-only refactor.
 - Resource-address changes require migration planning if already applied. Use
